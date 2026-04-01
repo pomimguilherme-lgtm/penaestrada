@@ -134,6 +134,7 @@ async function initDb() {
       telefone TEXT,
       email TEXT,
       observacoes TEXT,
+      vendedor_id INTEGER REFERENCES usuarios(id),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS reservas (
@@ -168,6 +169,9 @@ async function initDb() {
       FOREIGN KEY (reserva_id) REFERENCES reservas(id) ON DELETE CASCADE
     )`,
   ], 'deferred');
+
+  // Migracoes para bancos existentes
+  try { await c.execute("ALTER TABLE base_clientes ADD COLUMN vendedor_id INTEGER REFERENCES usuarios(id)"); } catch (_) {}
 
   // Criar admin padrao se nao existir
   const admins = await c.execute("SELECT id FROM usuarios WHERE tipo = 'admin'");
