@@ -25,6 +25,7 @@ export default function Viagens() {
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [visualizando, setVisualizando] = useState<Viagem | null>(null)
+  const [ocultandoId, setOcultandoId] = useState<number | null>(null)
   const [toast, setToast] = useState('')
   const [erro, setErro] = useState('')
   const { isAdmin } = useAuth()
