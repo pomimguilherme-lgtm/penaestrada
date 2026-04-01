@@ -1,0 +1,109 @@
+# Deploy — Pé na Estrada
+Sistema de Gestão de Viagens
+
+---
+
+## PASSO 1 — Subir o código no GitHub
+
+1. Acesse https://github.com e crie uma conta (se não tiver)
+2. Crie um novo repositório chamado: penaestrada
+3. Faça upload de TODA a pasta "Pe na Estrada" para esse repositório
+
+---
+
+## PASSO 2 — Deploy do Backend no Render
+
+1. Acesse https://render.com e crie uma conta gratuita
+2. Clique em "New +" → "Web Service"
+3. Conecte ao repositório GitHub que criou
+4. Configure:
+   - Name: penaestrada-backend
+   - Root Directory: (deixe vazio — o render.yaml já configura)
+   - Build Command: cd backend && npm install
+   - Start Command: cd backend && node src/index.js
+5. Em "Environment Variables", adicione:
+   - NODE_ENV = production
+   - JWT_SECRET = (gere uma senha forte aleatória, ex: abc123xyz456...)
+   - FRONTEND_URL = https://penaestrada.vercel.app
+6. Em "Disks", adicione:
+   - Name: sqlite-data
+   - Mount Path: /data
+   - Size: 1 GB
+7. Clique em "Create Web Service"
+8. Aguarde o deploy (3-5 min)
+9. Copie a URL gerada (ex: https://penaestrada-backend.onrender.com)
+
+---
+
+## PASSO 3 — Atualizar a URL do backend no frontend
+
+Abra o arquivo: frontend/vercel.json
+
+Substitua:
+  https://penaestrada-backend.onrender.com
+
+Pela URL real que o Render gerou no passo anterior.
+
+---
+
+## PASSO 4 — Deploy do Frontend no Vercel
+
+1. Acesse https://vercel.com e crie uma conta gratuita
+2. Clique em "New Project"
+3. Importe o repositório GitHub
+4. Configure:
+   - Root Directory: frontend
+   - Framework Preset: Vite
+   - Build Command: npm run build
+   - Output Directory: dist
+5. Clique em "Deploy"
+6. Aguarde o deploy (2-3 min)
+7. Acesse o link gerado (ex: https://penaestrada.vercel.app)
+
+---
+
+## PASSO 5 — Criar o admin no sistema online
+
+Após o deploy, acesse a URL do frontend e faça login com:
+  Email: admin@penaestrada.com
+  Senha: admin123
+
+Depois vá em "Vendedores" → edite o admin para:
+  Email: sabrina.pomim@penaestrada.com
+  Senha: 10Brasilsul
+
+---
+
+## INSTALAR O APP NO CELULAR (PWA)
+
+### Android (Chrome):
+1. Abra a URL do site no Chrome
+2. Toque no menu (3 pontinhos) → "Adicionar à tela inicial"
+3. O app aparece como ícone na tela inicial
+
+### iPhone (Safari):
+1. Abra a URL no Safari
+2. Toque no botão de compartilhar (quadrado com seta)
+3. Toque em "Adicionar à Tela de Início"
+4. O app aparece como ícone na tela inicial
+
+---
+
+## RESUMO DOS LINKS
+
+Após o deploy:
+- Site: https://penaestrada.vercel.app (ou URL gerada pelo Vercel)
+- API:  https://penaestrada-backend.onrender.com
+
+---
+
+## OBSERVAÇÕES IMPORTANTES
+
+- O Render gratuito "dorme" após 15 min sem uso.
+  O primeiro acesso pode demorar ~30 segundos para acordar.
+  Para evitar isso, faça upgrade para o plano pago (US$7/mês).
+
+- O banco de dados SQLite fica no disco persistente do Render.
+  Os dados NÃO se perdem quando o servidor reinicia.
+
+- HTTPS é automático em ambas as plataformas (sem custo extra).
