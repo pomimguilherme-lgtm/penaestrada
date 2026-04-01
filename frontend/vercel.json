@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://penaestrada-backend.onrender.com/api/:path*"
+      "destination": "https://penaestrada-backend-production-8520.up.railway.app/api/:path*"
     }
   ]
 }
