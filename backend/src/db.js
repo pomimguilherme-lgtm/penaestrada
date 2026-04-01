@@ -4,14 +4,18 @@ const fs = require('fs');
 const path = require('path');
 
 function getDbPath() {
+  // Usa /data se existir (Render pago), senão usa pasta local do app
+  const prodPath = '/data/database.db';
+  const localPath = path.join(__dirname, '../database.db');
   if (process.env.NODE_ENV === 'production') {
-    const dataDir = '/data';
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    try {
+      if (!fs.existsSync('/data')) fs.mkdirSync('/data', { recursive: true });
+      return prodPath;
+    } catch (_) {
+      return localPath;
     }
-    return path.join(dataDir, 'database.db');
   }
-  return path.join(__dirname, '../database.db');
+  return localPath;
 }
 const DB_PATH = getDbPath();
 
