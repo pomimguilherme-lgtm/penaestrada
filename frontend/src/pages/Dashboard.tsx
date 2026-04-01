@@ -41,6 +41,11 @@ interface PedidosData {
   pages: number
 }
 
+interface Vendedor {
+  id: number
+  nome: string
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmtMoeda = (v: number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -115,9 +120,11 @@ function TooltipMoeda({ active, payload, label }: any) {
 export default function Dashboard() {
   const [resumo, setResumo] = useState<Resumo | null>(null)
   const [pedidosData, setPedidosData] = useState<PedidosData | null>(null)
+  const [vendedores, setVendedores] = useState<Vendedor[]>([])
   const [periodo, setPeriodo] = useState('mes')
   const [filtroPagamento, setFiltroPagamento] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
+  const [filtroVendedor, setFiltroVendedor] = useState('')
   const [page, setPage] = useState(1)
   const [detalhe, setDetalhe] = useState<Pedido | null>(null)
   const [alerta, setAlerta] = useState<string | null>(null)
@@ -139,12 +146,17 @@ export default function Dashboard() {
     const params = new URLSearchParams({ page: String(page), limit: '12' })
     if (filtroPagamento) params.append('forma_pagamento', filtroPagamento)
     if (filtroStatus) params.append('status', filtroStatus)
+    if (filtroVendedor) params.append('vendedor_id', filtroVendedor)
     if (periodo !== 'todos') params.append('periodo', periodo)
     const r = await api.get(`/dashboard/pedidos?${params}`)
     setPedidosData(r.data)
-  }, [page, filtroPagamento, filtroStatus, periodo])
+  }, [page, filtroPagamento, filtroStatus, filtroVendedor, periodo])
 
   useEffect(() => { carregarResumo(); carregarPedidos() }, [carregarResumo, carregarPedidos])
+
+  useEffect(() => {
+    api.get('/dashboard/vendedores').then(r => setVendedores(r.data)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     pollingRef.current = setInterval(() => { carregarResumo(); carregarPedidos() }, 30000)
@@ -300,6 +312,15 @@ export default function Dashboard() {
                 <option value="cartao">Cartão</option>
                 <option value="boleto">Boleto</option>
               </select>
+              {vendedores.length > 0 && (
+                <select className="input py-1.5 text-sm w-auto"
+                  value={filtroVendedor} onChange={(e) => { setFiltroVendedor(e.target.value); setPage(1) }}>
+                  <option value="">Todos os vendedores</option>
+                  {vendedores.map(v => (
+                    <option key={v.id} value={v.id}>{v.nome}</option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 

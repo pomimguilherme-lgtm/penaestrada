@@ -47,12 +47,13 @@ router.get('/resumo', autenticar, apenasAdmin, async (req, res) => {
 // ─── LISTA DE RESERVAS/PEDIDOS (admin) ──────────────────────────────────────
 router.get('/pedidos', autenticar, apenasAdmin, async (req, res) => {
   try {
-    const { status, forma_pagamento, periodo, page = 1, limit = 15 } = req.query;
+    const { status, forma_pagamento, periodo, vendedor_id, page = 1, limit = 15 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
     let where = 'WHERE 1=1';
     const params = [];
     if (status) { where += ' AND r.status = ?'; params.push(status); }
     if (forma_pagamento) { where += ' AND r.forma_pagamento = ?'; params.push(forma_pagamento); }
+    if (vendedor_id) { where += ' AND r.vendedor_id = ?'; params.push(vendedor_id); }
     if (periodo === 'hoje') where += " AND date(r.created_at) = date('now')";
     else if (periodo === 'semana') where += " AND r.created_at >= datetime('now', '-7 days')";
     else if (periodo === 'mes') where += " AND strftime('%Y-%m',r.created_at) = strftime('%Y-%m','now')";
@@ -95,6 +96,14 @@ router.patch('/pedidos/:id/status', autenticar, apenasAdmin, async (req, res) =>
     if (!r) return res.status(404).json({ erro: 'Reserva nao encontrada' });
     await db.prepare('UPDATE reservas SET status = ? WHERE id = ?').run(status, req.params.id);
     res.json({ id: Number(req.params.id), status });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// ─── LISTA DE VENDEDORES (para filtro) ──────────────────────────────────────
+router.get('/vendedores', autenticar, apenasAdmin, async (req, res) => {
+  try {
+    const vendedores = await db.prepare("SELECT id, nome FROM usuarios WHERE tipo = 'vendedor' AND status = 'ativo' ORDER BY nome ASC").all();
+    res.json(vendedores);
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
