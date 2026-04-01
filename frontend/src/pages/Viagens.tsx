@@ -24,7 +24,7 @@ export default function Viagens() {
   const [deletando, setDeletando] = useState<Viagem | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [ocultandoId, setOcultandoId] = useState<number | null>(null)
+  const [visualizando, setVisualizando] = useState<Viagem | null>(null)
   const [toast, setToast] = useState('')
   const [erro, setErro] = useState('')
   const { isAdmin } = useAuth()
@@ -138,19 +138,22 @@ export default function Viagens() {
                 <span>Retorno: {new Date(v.data_retorno + 'T12:00').toLocaleDateString('pt-BR')}</span>
               </div>
               {v.descricao && <p className="text-xs text-gray-500 mb-3 line-clamp-2">{v.descricao}</p>}
-              {isAdmin && (
-                <div className="flex gap-2 pt-3 border-t border-gray-100">
-                  <button className="btn-secondary text-xs flex-1" onClick={() => abrirEditar(v)}>Editar</button>
-                  <button
-                    className="text-xs flex-1 px-3 py-1.5 rounded-lg bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100 transition-colors disabled:opacity-50"
-                    onClick={() => toggleOculto(v)}
-                    disabled={ocultandoId === v.id}
-                  >
-                    {ocultandoId === v.id ? '...' : 'Ocultar'}
-                  </button>
-                  <button className="btn-danger text-xs flex-1" onClick={() => setDeletando(v)}>Excluir</button>
-                </div>
-              )}
+              <div className="flex gap-2 pt-3 border-t border-gray-100">
+                <button className="btn-secondary text-xs flex-1" onClick={() => setVisualizando(v)}>Ver detalhes</button>
+                {isAdmin && (
+                  <>
+                    <button className="btn-secondary text-xs flex-1" onClick={() => abrirEditar(v)}>Editar</button>
+                    <button
+                      className="text-xs flex-1 px-3 py-1.5 rounded-lg bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100 transition-colors disabled:opacity-50"
+                      onClick={() => toggleOculto(v)}
+                      disabled={ocultandoId === v.id}
+                    >
+                      {ocultandoId === v.id ? '...' : 'Ocultar'}
+                    </button>
+                    <button className="btn-danger text-xs flex-1" onClick={() => setDeletando(v)}>Excluir</button>
+                  </>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -194,6 +197,46 @@ export default function Viagens() {
           </div>
         )}
       </div>
+
+      {/* Modal visualização (somente leitura) */}
+      {visualizando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setVisualizando(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-5">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">{visualizando.nome}</h2>
+                  <p className="text-sm text-gray-500">{visualizando.destino}</p>
+                </div>
+                <button onClick={() => setVisualizando(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-2 border-b border-gray-50">
+                  <span className="text-gray-500">Data de Saída</span>
+                  <span className="font-medium">{new Date(visualizando.data_saida + 'T12:00').toLocaleDateString('pt-BR')}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-50">
+                  <span className="text-gray-500">Data de Retorno</span>
+                  <span className="font-medium">{new Date(visualizando.data_retorno + 'T12:00').toLocaleDateString('pt-BR')}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-50">
+                  <span className="text-gray-500">Valor</span>
+                  <span className="font-bold text-emerald-600 text-base">R$ {Number(visualizando.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                {visualizando.descricao && (
+                  <div className="py-2">
+                    <p className="text-gray-500 mb-1">Descrição</p>
+                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{visualizando.descricao}</p>
+                  </div>
+                )}
+              </div>
+              <div className="mt-5 flex justify-end">
+                <button className="btn-secondary" onClick={() => setVisualizando(null)}>Fechar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
