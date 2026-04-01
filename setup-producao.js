@@ -1,6 +1,6 @@
 const https = require('https');
 
-function req(method, path, body, token) {
+function req(method, path, body) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
     const r = https.request({
@@ -8,7 +8,6 @@ function req(method, path, body, token) {
       path, method,
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {})
       }
     }, (res) => {
@@ -23,38 +22,32 @@ function req(method, path, body, token) {
 }
 
 async function main() {
-  console.log('🔑 Fazendo login com admin padrão...');
-  const login = await req('POST', '/api/auth/login', { email: 'admin@penaestrada.com', senha: 'admin123' });
-
-  if (!login.token) {
-    console.log('❌ Erro:', JSON.stringify(login));
-    return;
-  }
-  console.log('✅ Login OK! Token gerado.');
-  const token = login.token;
-
-  // Atualizar admin para sabrina
-  console.log('🔄 Atualizando email e senha do admin...');
-  const upd = await req('PUT', `/api/vendedores/${login.usuario.id}`, {
+  console.log('🔄 Configurando admin em produção...');
+  const setup = await req('POST', '/api/auth/setup-admin', {
     nome: 'Sabrina Pomim',
     email: 'sabrina.pomim@penaestrada.com',
-    senha: '10Brasilsul',
-    tipo: 'admin',
-    status: 'ativo'
-  }, token);
-  console.log('Resposta:', JSON.stringify(upd));
+    senha: '10Brasilsul'
+  });
+  console.log('Resposta setup:', JSON.stringify(setup));
 
-  // Testar novo login
-  console.log('🔑 Testando novo login...');
-  const login2 = await req('POST', '/api/auth/login', { email: 'sabrina.pomim@penaestrada.com', senha: '10Brasilsul' });
-  if (login2.token) {
-    console.log('✅ LOGIN SABRINA OK em produção!');
-    console.log('\n🎉 SISTEMA 100% ONLINE!');
-    console.log('   Site: https://penaestrada.vercel.app');
+  if (!setup.ok) {
+    console.log('⚠️  Tentando login direto (setup já feito antes)...');
+  }
+
+  const login = await req('POST', '/api/auth/login', {
+    email: 'sabrina.pomim@penaestrada.com',
+    senha: '10Brasilsul'
+  });
+
+  if (login.token) {
+    console.log('\n✅ LOGIN SABRINA OK em produção!');
+    console.log('🎉 SISTEMA 100% ONLINE!');
+    console.log('   Site:  https://penaestrada.vercel.app');
     console.log('   Email: sabrina.pomim@penaestrada.com');
     console.log('   Senha: 10Brasilsul');
   } else {
-    console.log('❌ Falhou:', JSON.stringify(login2));
+    console.log('❌ Login falhou:', JSON.stringify(login));
+    console.log('   Aguarde 1 minuto e rode novamente: node setup-producao.js');
   }
 }
 
