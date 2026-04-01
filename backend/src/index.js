@@ -17,6 +17,8 @@ app.use('/api/viagens', require('./routes/viagens'));
 app.use('/api/clientes', require('./routes/clientes'));
 app.use('/api/parcelas', require('./routes/parcelas').router);
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/base-clientes', require('./routes/base-clientes'));
+app.use('/api/reservas', require('./routes/reservas'));
 
 const PORT = process.env.PORT || 3001;
 

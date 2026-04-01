@@ -125,6 +125,48 @@ async function initDb() {
       pago INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS base_clientes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      cpf TEXT,
+      rg TEXT,
+      data_nascimento DATE,
+      telefone TEXT,
+      email TEXT,
+      observacoes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS reservas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      viagem_id INTEGER NOT NULL,
+      vendedor_id INTEGER NOT NULL,
+      desconto REAL DEFAULT 0,
+      adicional REAL DEFAULT 0,
+      forma_pagamento TEXT,
+      tipo_cartao TEXT,
+      num_parcelas INTEGER DEFAULT 1,
+      data_primeira_parcela DATE,
+      status TEXT NOT NULL DEFAULT 'pendente',
+      observacoes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (viagem_id) REFERENCES viagens(id),
+      FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS reserva_passageiros (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reserva_id INTEGER NOT NULL,
+      cliente_id INTEGER NOT NULL,
+      FOREIGN KEY (reserva_id) REFERENCES reservas(id) ON DELETE CASCADE,
+      FOREIGN KEY (cliente_id) REFERENCES base_clientes(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS parcelas_reserva (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reserva_id INTEGER NOT NULL,
+      numero_parcela INTEGER NOT NULL,
+      data_vencimento DATE NOT NULL,
+      pago INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (reserva_id) REFERENCES reservas(id) ON DELETE CASCADE
+    )`,
   ], 'deferred');
 
   // Criar admin padrao se nao existir
