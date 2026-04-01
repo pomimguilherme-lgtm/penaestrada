@@ -1,12 +1,35 @@
 const { createClient } = require('@libsql/client');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
+
+function resolveUrl() {
+  const url = process.env.TURSO_URL || 'file:database.db';
+  // Se for URL de arquivo local, garantir que o diretório existe
+  if (url.startsWith('file:')) {
+    const filePath = url.replace('file:', '');
+    const dir = path.dirname(filePath);
+    if (dir && dir !== '.' && !fs.existsSync(dir)) {
+      try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
+    }
+    // Fallback: se ainda não conseguir usar o caminho, usar pasta local
+    try {
+      fs.writeFileSync(filePath + '.test', ''); 
+      fs.unlinkSync(filePath + '.test');
+    } catch (_) {
+      console.log('Fallback: usando database.db local');
+      return 'file:database.db';
+    }
+  }
+  return url;
+}
 
 let client;
 
 function getClient() {
   if (client) return client;
   client = createClient({
-    url: process.env.TURSO_URL || 'file:database.db',
+    url: resolveUrl(),
     authToken: process.env.TURSO_AUTH_TOKEN || undefined,
   });
   return client;
