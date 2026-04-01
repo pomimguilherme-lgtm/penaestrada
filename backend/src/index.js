@@ -11,6 +11,26 @@ app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ status: 'ok', env: process.env.NODE_ENV }));
 
+// Backup do banco — protegido por token secreto
+app.get('/backup/database', (req, res) => {
+  const token = req.query.token;
+  const secret = process.env.BACKUP_SECRET || 'penaestrada-backup-2024';
+  if (token !== secret) return res.status(401).json({ erro: 'Nao autorizado' });
+
+  const fs = require('fs');
+  const path = require('path');
+  const dbUrl = process.env.TURSO_URL || 'file:database.db';
+  const dbPath = dbUrl.startsWith('file:') ? dbUrl.replace('file:', '') : 'database.db';
+  const absPath = path.isAbsolute(dbPath) ? dbPath : path.join(__dirname, '..', dbPath);
+
+  if (!fs.existsSync(absPath)) return res.status(404).json({ erro: 'Arquivo nao encontrado' });
+
+  const date = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Disposition', `attachment; filename="penaestrada-backup-${date}.db"`);
+  res.setHeader('Content-Type', 'application/octet-stream');
+  fs.createReadStream(absPath).pipe(res);
+});
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/vendedores', require('./routes/vendedores'));
 app.use('/api/viagens', require('./routes/viagens'));
