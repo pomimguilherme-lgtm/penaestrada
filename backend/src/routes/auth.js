@@ -25,5 +25,15 @@ router.post('/login', (req, res) => {
   res.json({ token, usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, tipo: usuario.tipo } });
 });
 
+// Endpoint de setup inicial — só funciona se email ainda for admin@penaestrada.com
+router.post('/setup-admin', (req, res) => {
+  const { nome, email, senha } = req.body;
+  const admin = db.prepare("SELECT * FROM usuarios WHERE email = 'admin@penaestrada.com' AND tipo = 'admin'").get();
+  if (!admin) return res.status(400).json({ erro: 'Setup já realizado ou admin não encontrado' });
+  const hash = bcrypt.hashSync(senha, 10);
+  db.prepare('UPDATE usuarios SET nome = ?, email = ?, senha = ? WHERE id = ?').run(nome, email, hash, admin.id);
+  res.json({ ok: true, mensagem: 'Admin atualizado com sucesso' });
+});
+
 module.exports = router;
 
