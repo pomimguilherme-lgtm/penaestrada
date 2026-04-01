@@ -6,8 +6,22 @@ const router = express.Router();
 
 router.get('/', autenticar, async (req, res) => {
   try {
-    const viagens = await db.prepare('SELECT * FROM viagens ORDER BY data_saida ASC').all();
+    const isAdmin = req.usuario.tipo === 'admin';
+    const viagens = isAdmin
+      ? await db.prepare('SELECT * FROM viagens ORDER BY data_saida ASC').all()
+      : await db.prepare('SELECT * FROM viagens WHERE oculto = 0 ORDER BY data_saida ASC').all();
     res.json(viagens);
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+router.patch('/:id/oculto', autenticar, apenasAdmin, async (req, res) => {
+  try {
+    const viagem = await db.prepare('SELECT * FROM viagens WHERE id = ?').get(req.params.id);
+    if (!viagem) return res.status(404).json({ erro: 'Viagem não encontrada' });
+    const novoStatus = viagem.oculto ? 0 : 1;
+    await db.prepare('UPDATE viagens SET oculto = ? WHERE id = ?').run(novoStatus, req.params.id);
+    const msg = novoStatus ? 'Viagem ocultada com sucesso' : 'Viagem reativada com sucesso';
+    res.json({ id: Number(req.params.id), oculto: novoStatus, mensagem: msg });
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 

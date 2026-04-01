@@ -67,6 +67,7 @@ async function initDb() {
       data_retorno DATE NOT NULL,
       valor REAL NOT NULL,
       descricao TEXT,
+      oculto INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS clientes (
