@@ -9,6 +9,8 @@ app.use(cors({
 }));
 app.use(express.json());
 
+app.get('/health', (req, res) => res.json({ status: 'ok', env: process.env.NODE_ENV }));
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/vendedores', require('./routes/vendedores'));
 app.use('/api/viagens', require('./routes/viagens'));

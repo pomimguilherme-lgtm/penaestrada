@@ -3,9 +3,17 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = process.env.NODE_ENV === 'production'
-  ? '/data/database.db'
-  : path.join(__dirname, '../database.db');
+function getDbPath() {
+  if (process.env.NODE_ENV === 'production') {
+    const dataDir = '/data';
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    return path.join(dataDir, 'database.db');
+  }
+  return path.join(__dirname, '../database.db');
+}
+const DB_PATH = getDbPath();
 
 let _db = null;
 
