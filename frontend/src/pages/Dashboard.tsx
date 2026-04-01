@@ -3,7 +3,7 @@ import Layout from '../components/Layout'
 import api from '../services/api'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell,
 } from 'recharts'
 
 // ─── tipos ───────────────────────────────────────────────────────────────────
@@ -22,17 +22,15 @@ interface Resumo {
 
 interface Pedido {
   id: number
-  nome: string
-  telefone: string
-  cpf: string | null
+  passageiros_nomes: string | null
+  viagem_nome: string | null
+  destino: string | null
+  vendedor_nome: string
   forma_pagamento: string | null
   tipo_cartao: string | null
   num_parcelas: number
   status: string
   created_at: string
-  viagem_nome: string | null
-  destino: string | null
-  vendedor_nome: string
   valor_final: number
 }
 
@@ -80,7 +78,7 @@ const STATUS_LABEL: Record<string, string> = {
   pago: 'Pago', pendente: 'Pendente', cancelado: 'Cancelado',
 }
 
-// ─── componente StatCard ──────────────────────────────────────────────────────
+// ─── StatCard ─────────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, sub, color = 'bg-blue-50' }: {
   label: string; value: string | number; icon: string; sub?: string; color?: string
 }) {
@@ -98,14 +96,16 @@ function StatCard({ label, value, icon, sub, color = 'bg-blue-50' }: {
   )
 }
 
-// ─── tooltip customizado ──────────────────────────────────────────────────────
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
 function TooltipMoeda({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-sm">
       <p className="font-medium text-gray-700 mb-1">{label}</p>
       {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.color }}>{p.name}: {typeof p.value === 'number' && p.name.toLowerCase().includes('r$') ? fmtMoeda(p.value) : p.value}</p>
+        <p key={p.name} style={{ color: p.color }}>
+          {p.name}: {typeof p.value === 'number' && p.name.toLowerCase().includes('r$') ? fmtMoeda(p.value) : p.value}
+        </p>
       ))}
     </div>
   )
@@ -127,10 +127,9 @@ export default function Dashboard() {
   const carregarResumo = useCallback(async () => {
     const r = await api.get(`/dashboard/resumo?periodo=${periodo}`)
     setResumo(r.data)
-
-    const novoTotal = r.data.totalClientes
+    const novoTotal = r.data.pedidosHoje
     if (prevTotal.current > 0 && novoTotal > prevTotal.current) {
-      setAlerta(`Novo pedido recebido!`)
+      setAlerta('Nova reserva recebida!')
       setTimeout(() => setAlerta(null), 5000)
     }
     prevTotal.current = novoTotal
@@ -145,24 +144,16 @@ export default function Dashboard() {
     setPedidosData(r.data)
   }, [page, filtroPagamento, filtroStatus, periodo])
 
-  useEffect(() => {
-    carregarResumo()
-    carregarPedidos()
-  }, [carregarResumo, carregarPedidos])
+  useEffect(() => { carregarResumo(); carregarPedidos() }, [carregarResumo, carregarPedidos])
 
-  // Polling a cada 30s
   useEffect(() => {
-    pollingRef.current = setInterval(() => {
-      carregarResumo()
-      carregarPedidos()
-    }, 30000)
+    pollingRef.current = setInterval(() => { carregarResumo(); carregarPedidos() }, 30000)
     return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
   }, [carregarResumo, carregarPedidos])
 
   async function atualizarStatus(id: number, status: string) {
     await api.patch(`/dashboard/pedidos/${id}/status`, { status })
-    carregarPedidos()
-    carregarResumo()
+    carregarPedidos(); carregarResumo()
     if (detalhe?.id === id) setDetalhe((d) => d ? { ...d, status } : d)
   }
 
@@ -187,7 +178,7 @@ export default function Dashboard() {
     <Layout titulo="Dashboard">
       <div className="space-y-6">
 
-        {/* ─── ALERTA ─────────────────────────────────────── */}
+        {/* ALERTA */}
         {alerta && (
           <div className="fixed top-4 right-4 z-50 flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl animate-pulse">
             <span className="text-xl">🔔</span>
@@ -196,7 +187,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ─── FILTRO DE PERÍODO ──────────────────────────── */}
+        {/* FILTRO PERÍODO */}
         <div className="flex flex-wrap gap-2 items-center">
           <span className="text-sm text-gray-500 font-medium">Período:</span>
           {[
@@ -205,32 +196,27 @@ export default function Dashboard() {
             { value: 'mes', label: 'Mês' },
             { value: 'todos', label: 'Todos' },
           ].map((op) => (
-            <button
-              key={op.value}
-              onClick={() => { setPeriodo(op.value); setPage(1) }}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${periodo === op.value ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'}`}
-            >
+            <button key={op.value} onClick={() => { setPeriodo(op.value); setPage(1) }}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${periodo === op.value ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'}`}>
               {op.label}
             </button>
           ))}
-          <button
-            onClick={() => { carregarResumo(); carregarPedidos() }}
-            className="ml-auto px-3 py-1.5 rounded-lg text-sm text-gray-500 border border-gray-200 hover:bg-gray-50 flex items-center gap-1.5"
-          >
+          <button onClick={() => { carregarResumo(); carregarPedidos() }}
+            className="ml-auto px-3 py-1.5 rounded-lg text-sm text-gray-500 border border-gray-200 hover:bg-gray-50 flex items-center gap-1.5">
             🔄 Atualizar
           </button>
         </div>
 
-        {/* ─── CARDS ──────────────────────────────────────── */}
+        {/* CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard label="Vendido Hoje" value={fmtMoeda(resumo.totalHoje)} icon="💰" color="bg-emerald-50" />
           <StatCard label="Vendido no Mês" value={fmtMoeda(resumo.totalMes)} icon="📈" color="bg-blue-50" />
-          <StatCard label="Pedidos Hoje" value={resumo.pedidosHoje} icon="📋" color="bg-amber-50" />
-          <StatCard label="Total Clientes" value={resumo.totalClientes} icon="👥" color="bg-purple-50" />
-          <StatCard label="Ticket Médio" value={fmtMoeda(resumo.ticketMedio)} icon="🎯" color="bg-rose-50" sub="por pedido" />
+          <StatCard label="Reservas Hoje" value={resumo.pedidosHoje} icon="📋" color="bg-amber-50" />
+          <StatCard label="Total Passageiros" value={resumo.totalClientes} icon="👥" color="bg-purple-50" />
+          <StatCard label="Ticket Médio" value={fmtMoeda(resumo.ticketMedio)} icon="🎯" color="bg-rose-50" sub="por reserva" />
         </div>
 
-        {/* ─── STATUS BADGES ───────────────────────────────── */}
+        {/* STATUS BADGES */}
         <div className="flex flex-wrap gap-3">
           {resumo.statusResumo.map((s) => (
             <div key={s.status} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${STATUS_COR[s.status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
@@ -240,12 +226,11 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* ─── GRÁFICOS ────────────────────────────────────── */}
+        {/* GRÁFICOS */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* Vendas por dia */}
           <div className="card lg:col-span-2">
-            <h3 className="font-semibold text-gray-700 mb-4">Vendas por Dia (últimos 7 dias)</h3>
+            <h3 className="font-semibold text-gray-700 mb-4">Reservas por Dia (últimos 7 dias)</h3>
             {resumo.vendasPorDia.length === 0 ? (
               <div className="h-40 flex items-center justify-center text-gray-400 text-sm">Sem dados no período</div>
             ) : (
@@ -260,7 +245,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Distribuição pagamento */}
           <div className="card">
             <h3 className="font-semibold text-gray-700 mb-4">Forma de Pagamento</h3>
             {pieData.length === 0 ? (
@@ -268,20 +252,19 @@ export default function Dashboard() {
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false} fontSize={11}>
-                    {pieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.cor} />
-                    ))}
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70}
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                    labelLine={false} fontSize={11}>
+                    {pieData.map((entry, i) => <Cell key={i} fill={entry.cor} />)}
                   </Pie>
-                  <Tooltip formatter={(v) => [`${v as number} pedidos`]} />
+                  <Tooltip formatter={(v) => [`${v as number} reservas`]} />
                 </PieChart>
               </ResponsiveContainer>
             )}
           </div>
 
-          {/* Vendas por mês */}
           <div className="card lg:col-span-3">
-            <h3 className="font-semibold text-gray-700 mb-4">Vendas por Mês (últimos 6 meses)</h3>
+            <h3 className="font-semibold text-gray-700 mb-4">Reservas por Mês (últimos 6 meses)</h3>
             {resumo.vendasPorMes.length === 0 ? (
               <div className="h-40 flex items-center justify-center text-gray-400 text-sm">Sem dados no período</div>
             ) : (
@@ -289,7 +272,7 @@ export default function Dashboard() {
                 <BarChart data={resumo.vendasPorMes.map((d) => ({ ...d, mes: fmtMes(d.mes) }))}>
                   <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v, name) => [name === 'total' ? fmtMoeda(v as number) : v, name === 'total' ? 'Receita' : 'Pedidos']} />
+                  <Tooltip formatter={(v, name) => [name === 'total' ? fmtMoeda(v as number) : v, name === 'total' ? 'Receita' : 'Reservas']} />
                   <Bar dataKey="total" name="total" fill="#10b981" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="pedidos" name="pedidos" fill="#93c5fd" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -298,10 +281,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ─── PEDIDOS RECENTES ─────────────────────────────── */}
+        {/* RESERVAS RECENTES */}
         <div className="card p-0 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap gap-3 items-center justify-between">
-            <h3 className="font-semibold text-gray-700">Pedidos Recentes</h3>
+            <h3 className="font-semibold text-gray-700">Reservas Recentes</h3>
             <div className="flex flex-wrap gap-2">
               <select className="input py-1.5 text-sm w-auto"
                 value={filtroStatus} onChange={(e) => { setFiltroStatus(e.target.value); setPage(1) }}>
@@ -324,22 +307,22 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Cliente</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Passageiros</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Viagem</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Pagamento</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Valor</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Data</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Acoes</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {!pedidosData || pedidosData.pedidos.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-10 text-gray-400">Nenhum pedido encontrado.</td></tr>
+                  <tr><td colSpan={7} className="text-center py-10 text-gray-400">Nenhuma reserva encontrada.</td></tr>
                 ) : pedidosData.pedidos.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetalhe(p)}>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-800">{p.nome}</div>
+                      <div className="font-medium text-gray-800">{p.passageiros_nomes || <span className="text-gray-400 text-xs">Sem passageiros</span>}</div>
                       <div className="text-xs text-gray-400">{p.vendedor_nome}</div>
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{p.viagem_nome || '—'}</td>
@@ -358,8 +341,7 @@ export default function Dashboard() {
                       <select
                         className={`text-xs font-medium px-2 py-1 rounded-lg border cursor-pointer ${STATUS_COR[p.status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}
                         value={p.status}
-                        onChange={(e) => atualizarStatus(p.id, e.target.value)}
-                      >
+                        onChange={(e) => atualizarStatus(p.id, e.target.value)}>
                         <option value="pendente">Pendente</option>
                         <option value="pago">Pago</option>
                         <option value="cancelado">Cancelado</option>
@@ -375,10 +357,9 @@ export default function Dashboard() {
             </table>
           </div>
 
-          {/* Paginação */}
           {pedidosData && pedidosData.pages > 1 && (
             <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-              <span className="text-xs text-gray-500">{pedidosData.total} pedidos no total</span>
+              <span className="text-xs text-gray-500">{pedidosData.total} reservas no total</span>
               <div className="flex gap-1">
                 <button className="btn-secondary text-xs px-3 py-1" disabled={page === 1} onClick={() => setPage(page - 1)}>‹ Anterior</button>
                 <span className="px-3 py-1 text-xs text-gray-600">{page} / {pedidosData.pages}</span>
@@ -390,23 +371,21 @@ export default function Dashboard() {
 
       </div>
 
-      {/* ─── MODAL DETALHE ────────────────────────────────── */}
+      {/* MODAL DETALHE */}
       {detalhe && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setDetalhe(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-start justify-between mb-5">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-800">{detalhe.nome}</h2>
-                  <p className="text-sm text-gray-400">Pedido #{detalhe.id}</p>
+                  <h2 className="text-lg font-semibold text-gray-800">{detalhe.viagem_nome || 'Reserva'}</h2>
+                  <p className="text-sm text-gray-400">Reserva #{detalhe.id}</p>
                 </div>
                 <button onClick={() => setDetalhe(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
               </div>
 
               <div className="space-y-3 text-sm">
-                <Row label="Telefone" value={detalhe.telefone} />
-                <Row label="CPF" value={detalhe.cpf || '—'} />
-                <Row label="Viagem" value={detalhe.viagem_nome || '—'} />
+                <Row label="Passageiros" value={detalhe.passageiros_nomes || 'Nenhum'} />
                 <Row label="Destino" value={detalhe.destino || '—'} />
                 <Row label="Vendedor" value={detalhe.vendedor_nome} />
                 <Row label="Pagamento" value={
@@ -419,8 +398,7 @@ export default function Dashboard() {
                   <select
                     className={`text-xs font-medium px-3 py-1.5 rounded-lg border cursor-pointer ${STATUS_COR[detalhe.status]}`}
                     value={detalhe.status}
-                    onChange={(e) => atualizarStatus(detalhe.id, e.target.value)}
-                  >
+                    onChange={(e) => atualizarStatus(detalhe.id, e.target.value)}>
                     <option value="pendente">Pendente</option>
                     <option value="pago">Pago</option>
                     <option value="cancelado">Cancelado</option>
@@ -439,7 +417,7 @@ function Row({ label, value, highlight }: { label: string; value: string; highli
   return (
     <div className="flex justify-between py-1.5 border-b border-gray-50">
       <span className="text-gray-500">{label}</span>
-      <span className={`font-medium ${highlight ? 'text-emerald-600 text-base' : 'text-gray-800'}`}>{value}</span>
+      <span className={`font-medium text-right max-w-xs ${highlight ? 'text-emerald-600 text-base' : 'text-gray-800'}`}>{value}</span>
     </div>
   )
 }
