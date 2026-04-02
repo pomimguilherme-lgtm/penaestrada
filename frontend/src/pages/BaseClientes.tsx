@@ -25,6 +25,13 @@ export default function BaseClientes() {
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   const [toast, setToast] = useState('')
+  const [modo, setModo] = useState<'completo' | 'nome'>(() =>
+    (localStorage.getItem('clientes_modo') as 'completo' | 'nome') || 'completo'
+  )
+
+  function alterarModo(m: 'completo' | 'nome') {
+    setModo(m); localStorage.setItem('clientes_modo', m)
+  }
 
   useEffect(() => { carregar() }, [busca])
 
@@ -70,14 +77,31 @@ export default function BaseClientes() {
       {toast && <div className="fixed top-4 right-4 z-50 bg-blue-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium">{toast}</div>}
 
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3 justify-between">
+        <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
           <input
             className="input max-w-xs"
             placeholder="Buscar por nome, CPF, telefone..."
             value={busca}
             onChange={e => setBusca(e.target.value)}
           />
-          <button className="btn-primary" onClick={abrirNovo}>+ Novo Cliente</button>
+          <div className="flex items-center gap-3">
+            {/* Botões de modo */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+              <button
+                onClick={() => alterarModo('completo')}
+                className={`px-3 py-1.5 transition-colors ${modo === 'completo' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                Completo
+              </button>
+              <button
+                onClick={() => alterarModo('nome')}
+                className={`px-3 py-1.5 transition-colors border-l border-gray-200 ${modo === 'nome' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                Somente Nome
+              </button>
+            </div>
+            <button className="btn-primary" onClick={abrirNovo}>+ Novo Cliente</button>
+          </div>
         </div>
 
         <div className="card overflow-hidden p-0">
@@ -86,28 +110,32 @@ export default function BaseClientes() {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Nome</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">CPF</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">RG</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Telefone</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Email</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Nascimento</th>
+                  {modo === 'completo' && <>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">CPF</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">RG</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Telefone</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Email</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Nascimento</th>
+                  </>}
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {clientes.length === 0 && (
-                  <tr><td colSpan={7} className="text-center py-12 text-gray-400">Nenhum cliente cadastrado.</td></tr>
+                  <tr><td colSpan={8} className="text-center py-12 text-gray-400">Nenhum cliente cadastrado.</td></tr>
                 )}
                 {clientes.map(c => (
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-800">{c.nome}</td>
-                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{c.cpf || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 hidden lg:table-cell">{c.rg || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{c.telefone || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 hidden lg:table-cell">{c.email || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
-                      {c.data_nascimento ? new Date(c.data_nascimento + 'T12:00').toLocaleDateString('pt-BR') : '—'}
-                    </td>
+                    {modo === 'completo' && <>
+                      <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{c.cpf || '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 hidden lg:table-cell">{c.rg || '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{c.telefone || '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 hidden lg:table-cell">{c.email || '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
+                        {c.data_nascimento ? new Date(c.data_nascimento + 'T12:00').toLocaleDateString('pt-BR') : '—'}
+                      </td>
+                    </>}
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button className="btn-secondary text-xs" onClick={() => abrirEditar(c)}>Editar</button>
