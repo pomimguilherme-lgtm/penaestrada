@@ -39,6 +39,7 @@ app.use('/api/parcelas', require('./routes/parcelas').router);
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/base-clientes', require('./routes/base-clientes'));
 app.use('/api/reservas', require('./routes/reservas'));
+app.use('/api/passageiros', require('./routes/passageiros'));
 
 const PORT = process.env.PORT || 3001;
 

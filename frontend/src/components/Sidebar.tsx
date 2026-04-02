@@ -5,6 +5,7 @@ import logoIcon from '../assets/logo-icon.png'
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊', roles: ['admin', 'vendedor'] },
   { to: '/reservas', label: 'Reservas', icon: '📋', roles: ['admin', 'vendedor'] },
+  { to: '/passageiros', label: 'Passageiros', icon: '🧳', roles: ['admin', 'vendedor'] },
   { to: '/clientes', label: 'Clientes', icon: '👤', roles: ['admin', 'vendedor'] },
   { to: '/viagens', label: 'Viagens', icon: '✈️', roles: ['admin', 'vendedor'] },
   { to: '/vendedores', label: 'Vendedores', icon: '🧑‍💼', roles: ['admin'] },
