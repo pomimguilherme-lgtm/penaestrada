@@ -17,6 +17,62 @@ interface Viagem {
 
 const empty: Omit<Viagem, 'id' | 'oculto'> = { nome: '', destino: '', data_saida: '', data_retorno: '', valor: 0, descricao: '' }
 
+function chavesMes(viagens: Viagem[]) {
+  const meses = new Map<string, Viagem[]>()
+  const ordenadas = [...viagens].sort((a, b) => a.data_saida.localeCompare(b.data_saida))
+  for (const v of ordenadas) {
+    const [ano, mes] = v.data_saida.split('-')
+    const chave = `${ano}-${mes}`
+    if (!meses.has(chave)) meses.set(chave, [])
+    meses.get(chave)!.push(v)
+  }
+  return meses
+}
+
+function nomeMes(chave: string) {
+  const [ano, mes] = chave.split('-')
+  return new Date(Number(ano), Number(mes) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+}
+
+function CardViagem({ v, isAdmin, ocultandoId, onVer, onEditar, onOcultar, onDeletar }: {
+  v: Viagem; isAdmin: boolean; ocultandoId: number | null
+  onVer: () => void; onEditar: () => void; onOcultar: () => void; onDeletar: () => void
+}) {
+  return (
+    <div className="card hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <h3 className="font-semibold text-gray-800">{v.nome}</h3>
+          <p className="text-sm text-gray-500">{v.destino}</p>
+        </div>
+        <span className="text-lg font-bold text-emerald-600">
+          R$ {Number(v.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        </span>
+      </div>
+      <div className="flex gap-4 text-xs text-gray-500 mb-3">
+        <span>Saída: {new Date(v.data_saida + 'T12:00').toLocaleDateString('pt-BR')}</span>
+        <span>Retorno: {new Date(v.data_retorno + 'T12:00').toLocaleDateString('pt-BR')}</span>
+      </div>
+      {v.descricao && <p className="text-xs text-gray-500 mb-3 line-clamp-2">{v.descricao}</p>}
+      <div className="flex gap-2 pt-3 border-t border-gray-100">
+        <button className="btn-secondary text-xs flex-1" onClick={onVer}>Ver detalhes</button>
+        {isAdmin && (
+          <>
+            <button className="btn-secondary text-xs flex-1" onClick={onEditar}>Editar</button>
+            <button
+              className="text-xs flex-1 px-3 py-1.5 rounded-lg bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100 transition-colors disabled:opacity-50"
+              onClick={onOcultar} disabled={ocultandoId === v.id}
+            >
+              {ocultandoId === v.id ? '...' : 'Ocultar'}
+            </button>
+            <button className="btn-danger text-xs flex-1" onClick={onDeletar}>Excluir</button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Viagens() {
   const [viagens, setViagens] = useState<Viagem[]>([])
   const [form, setForm] = useState<Omit<Viagem, 'id' | 'oculto'>>(empty)
@@ -26,6 +82,7 @@ export default function Viagens() {
   const [loading, setLoading] = useState(false)
   const [visualizando, setVisualizando] = useState<Viagem | null>(null)
   const [ocultandoId, setOcultandoId] = useState<number | null>(null)
+  const [mesesAbertos, setMesesAbertos] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState('')
   const [erro, setErro] = useState('')
   const { isAdmin } = useAuth()
@@ -33,58 +90,52 @@ export default function Viagens() {
   useEffect(() => { carregar() }, [])
 
   function carregar() {
-    api.get('/viagens').then((r) => setViagens(r.data))
+    api.get('/viagens').then((r) => {
+      setViagens(r.data)
+      // Abrir todos os meses por padrão
+      const meses = chavesMes(r.data.filter((v: Viagem) => !v.oculto))
+      setMesesAbertos(new Set(meses.keys()))
+    })
+  }
+
+  function toggleMes(chave: string) {
+    setMesesAbertos(prev => {
+      const next = new Set(prev)
+      next.has(chave) ? next.delete(chave) : next.add(chave)
+      return next
+    })
   }
 
   function mostrarToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(''), 3000)
+    setToast(msg); setTimeout(() => setToast(''), 3000)
   }
 
   function abrirNovo() {
-    setForm(empty)
-    setEditando(null)
-    setErro('')
-    setShowForm(true)
+    setForm(empty); setEditando(null); setErro(''); setShowForm(true)
   }
 
   function abrirEditar(v: Viagem) {
     setForm({ nome: v.nome, destino: v.destino, data_saida: v.data_saida, data_retorno: v.data_retorno, valor: v.valor, descricao: v.descricao })
-    setEditando(v)
-    setErro('')
-    setShowForm(true)
+    setEditando(v); setErro(''); setShowForm(true)
   }
 
   async function toggleOculto(v: Viagem) {
     setOcultandoId(v.id)
     try {
       const r = await api.patch(`/viagens/${v.id}/oculto`, {})
-      mostrarToast(r.data.mensagem)
-      carregar()
-    } catch {
-      mostrarToast('Erro ao atualizar viagem')
-    } finally {
-      setOcultandoId(null)
-    }
+      mostrarToast(r.data.mensagem); carregar()
+    } catch { mostrarToast('Erro ao atualizar viagem') }
+    finally { setOcultandoId(null) }
   }
 
   async function salvar(e: FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setErro('')
+    e.preventDefault(); setLoading(true); setErro('')
     try {
-      if (editando) {
-        await api.put(`/viagens/${editando.id}`, form)
-      } else {
-        await api.post('/viagens', form)
-      }
-      setShowForm(false)
-      carregar()
-    } catch (err: any) {
-      setErro(err.response?.data?.erro || 'Erro ao salvar')
-    } finally {
-      setLoading(false)
-    }
+      if (editando) await api.put(`/viagens/${editando.id}`, form)
+      else await api.post('/viagens', form)
+      setShowForm(false); carregar()
+    } catch (err: any) { setErro(err.response?.data?.erro || 'Erro ao salvar') }
+    finally { setLoading(false) }
   }
 
   async function deletar() {
@@ -92,15 +143,13 @@ export default function Viagens() {
     setLoading(true)
     try {
       await api.delete(`/viagens/${deletando.id}`)
-      setDeletando(null)
-      carregar()
-    } finally {
-      setLoading(false)
-    }
+      setDeletando(null); carregar()
+    } finally { setLoading(false) }
   }
 
   const visiveis = viagens.filter(v => !v.oculto)
   const ocultas = viagens.filter(v => v.oculto)
+  const porMes = chavesMes(visiveis)
 
   return (
     <Layout titulo="Viagens">
@@ -112,52 +161,56 @@ export default function Viagens() {
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <p className="text-sm text-gray-500">{visiveis.length} viagem(ns) visível(is){isAdmin && ocultas.length > 0 && ` · ${ocultas.length} oculta(s)`}</p>
+          <p className="text-sm text-gray-500">
+            {visiveis.length} viagem(ns) visível(is){isAdmin && ocultas.length > 0 && ` · ${ocultas.length} oculta(s)`}
+          </p>
           {isAdmin && (
             <button className="btn-primary" onClick={abrirNovo}>+ Nova Viagem</button>
           )}
         </div>
 
-        {/* Viagens visíveis */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {visiveis.length === 0 && (
-            <div className="col-span-full text-center py-12 text-gray-400">Nenhuma viagem cadastrada.</div>
-          )}
-          {visiveis.map((v) => (
-            <div key={v.id} className="card hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-semibold text-gray-800">{v.nome}</h3>
-                  <p className="text-sm text-gray-500">{v.destino}</p>
+        {visiveis.length === 0 && (
+          <div className="text-center py-12 text-gray-400">Nenhuma viagem cadastrada.</div>
+        )}
+
+        {/* Viagens agrupadas por mês */}
+        {Array.from(porMes.entries()).map(([chave, lista]) => {
+          const aberto = mesesAbertos.has(chave)
+          return (
+            <div key={chave}>
+              {/* Cabeçalho do mês — clicável */}
+              <button
+                onClick={() => toggleMes(chave)}
+                className="w-full flex items-center justify-between mb-3 group"
+              >
+                <div className="flex items-center gap-3">
+                  <h2 className="text-base font-bold text-gray-700 capitalize">{nomeMes(chave)}</h2>
+                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">
+                    {lista.length} viagem{lista.length !== 1 ? 's' : ''}
+                  </span>
                 </div>
-                <span className="text-lg font-bold text-emerald-600">
-                  R$ {Number(v.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="flex gap-4 text-xs text-gray-500 mb-3">
-                <span>Saída: {new Date(v.data_saida + 'T12:00').toLocaleDateString('pt-BR')}</span>
-                <span>Retorno: {new Date(v.data_retorno + 'T12:00').toLocaleDateString('pt-BR')}</span>
-              </div>
-              {v.descricao && <p className="text-xs text-gray-500 mb-3 line-clamp-2">{v.descricao}</p>}
-              <div className="flex gap-2 pt-3 border-t border-gray-100">
-                <button className="btn-secondary text-xs flex-1" onClick={() => setVisualizando(v)}>Ver detalhes</button>
-                {isAdmin && (
-                  <>
-                    <button className="btn-secondary text-xs flex-1" onClick={() => abrirEditar(v)}>Editar</button>
-                    <button
-                      className="text-xs flex-1 px-3 py-1.5 rounded-lg bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100 transition-colors disabled:opacity-50"
-                      onClick={() => toggleOculto(v)}
-                      disabled={ocultandoId === v.id}
-                    >
-                      {ocultandoId === v.id ? '...' : 'Ocultar'}
-                    </button>
-                    <button className="btn-danger text-xs flex-1" onClick={() => setDeletando(v)}>Excluir</button>
-                  </>
-                )}
-              </div>
+                <span className={`text-gray-400 text-sm transition-transform duration-200 ${aberto ? 'rotate-180' : ''}`}>▼</span>
+              </button>
+
+              {/* Cards do mês */}
+              {aberto && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-2">
+                  {lista.map(v => (
+                    <CardViagem
+                      key={v.id} v={v} isAdmin={isAdmin} ocultandoId={ocultandoId}
+                      onVer={() => setVisualizando(v)}
+                      onEditar={() => abrirEditar(v)}
+                      onOcultar={() => toggleOculto(v)}
+                      onDeletar={() => setDeletando(v)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <div className="border-b border-gray-100 mt-2" />
             </div>
-          ))}
-        </div>
+          )
+        })}
 
         {/* Viagens ocultas — apenas admin */}
         {isAdmin && ocultas.length > 0 && (
@@ -185,8 +238,7 @@ export default function Viagens() {
                   <div className="flex gap-2 pt-3 border-t border-gray-100">
                     <button
                       className="text-xs flex-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                      onClick={() => toggleOculto(v)}
-                      disabled={ocultandoId === v.id}
+                      onClick={() => toggleOculto(v)} disabled={ocultandoId === v.id}
                     >
                       {ocultandoId === v.id ? '...' : 'Reativar'}
                     </button>
@@ -199,7 +251,7 @@ export default function Viagens() {
         )}
       </div>
 
-      {/* Modal visualização (somente leitura) */}
+      {/* Modal visualização */}
       {visualizando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setVisualizando(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
@@ -239,6 +291,7 @@ export default function Viagens() {
         </div>
       )}
 
+      {/* Modal formulário */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
