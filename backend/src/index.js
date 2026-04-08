@@ -41,6 +41,10 @@ app.use('/api/base-clientes', require('./routes/base-clientes'));
 app.use('/api/reservas', require('./routes/reservas'));
 app.use('/api/passageiros', require('./routes/passageiros'));
 
+const { router: galeriaRouter, uploadsDir } = require('./routes/galeria');
+app.use('/uploads', express.static(uploadsDir));
+app.use('/api/galeria', galeriaRouter);
+
 const PORT = process.env.PORT || 3001;
 
 initDb().then(() => {

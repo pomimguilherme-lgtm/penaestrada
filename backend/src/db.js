@@ -168,6 +168,17 @@ async function initDb() {
       pago INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY (reserva_id) REFERENCES reservas(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS viagem_midias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      viagem_id INTEGER NOT NULL,
+      tipo TEXT NOT NULL CHECK(tipo IN ('imagem','video')),
+      nome_arquivo TEXT NOT NULL,
+      url TEXT NOT NULL,
+      tamanho INTEGER,
+      uploaded_por INTEGER REFERENCES usuarios(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (viagem_id) REFERENCES viagens(id) ON DELETE CASCADE
+    )`,
   ], 'deferred');
 
   // Migracoes para bancos existentes

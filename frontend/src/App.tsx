@@ -7,6 +7,7 @@ import Clientes from './pages/Clientes'
 import BaseClientes from './pages/BaseClientes'
 import Reservas from './pages/Reservas'
 import Passageiros from './pages/Passageiros'
+import Galeria from './pages/Galeria'
 import Viagens from './pages/Viagens'
 import Vendedores from './pages/Vendedores'
 
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/reservas" element={<ProtectedRoute><Reservas /></ProtectedRoute>} />
           <Route path="/passageiros" element={<ProtectedRoute><Passageiros /></ProtectedRoute>} />
+          <Route path="/galeria" element={<ProtectedRoute><Galeria /></ProtectedRoute>} />
           <Route path="/clientes" element={<ProtectedRoute><BaseClientes /></ProtectedRoute>} />
           <Route path="/clientes-antigos" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
           <Route path="/viagens" element={<ProtectedRoute><Viagens /></ProtectedRoute>} />
