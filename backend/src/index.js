@@ -41,9 +41,15 @@ app.use('/api/base-clientes', require('./routes/base-clientes'));
 app.use('/api/reservas', require('./routes/reservas'));
 app.use('/api/passageiros', require('./routes/passageiros'));
 
-const { router: galeriaRouter, uploadsDir } = require('./routes/galeria');
-app.use('/uploads', express.static(uploadsDir));
-app.use('/api/galeria', galeriaRouter);
+try {
+  const { router: galeriaRouter, uploadsDir } = require('./routes/galeria');
+  const express_static = require('express').static;
+  app.use('/uploads', express_static(uploadsDir));
+  app.use('/api/galeria', galeriaRouter);
+  console.log('Galeria carregada com sucesso. Uploads:', uploadsDir);
+} catch (e) {
+  console.error('Erro ao carregar galeria:', e.message);
+}
 
 const PORT = process.env.PORT || 3001;
 
