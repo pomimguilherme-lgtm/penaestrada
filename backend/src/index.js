@@ -51,6 +51,14 @@ try {
   console.error('Erro ao carregar galeria:', e.message);
 }
 
+try {
+  const { router: galeriasRouter, uploadsDir: uploadsDir2 } = require('./routes/galerias');
+  app.use('/api/galerias', galeriasRouter);
+  console.log('Galerias carregadas. Uploads:', uploadsDir2);
+} catch (e) {
+  console.error('Erro ao carregar galerias:', e.message);
+}
+
 const PORT = process.env.PORT || 3001;
 
 initDb().then(() => {

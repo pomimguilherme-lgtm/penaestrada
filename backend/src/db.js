@@ -179,6 +179,25 @@ async function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (viagem_id) REFERENCES viagens(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS galerias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      data TEXT,
+      descricao TEXT,
+      created_by INTEGER REFERENCES usuarios(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS galeria_midias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      galeria_id INTEGER NOT NULL,
+      tipo TEXT NOT NULL CHECK(tipo IN ('imagem','video')),
+      nome_arquivo TEXT NOT NULL,
+      url TEXT NOT NULL,
+      tamanho INTEGER,
+      uploaded_por INTEGER REFERENCES usuarios(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (galeria_id) REFERENCES galerias(id) ON DELETE CASCADE
+    )`,
   ], 'deferred');
 
   // Migracoes para bancos existentes
