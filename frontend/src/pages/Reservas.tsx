@@ -4,17 +4,20 @@ import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 
 interface Passageiro { id: number; nome: string; cpf: string; telefone: string }
-interface Viagem { id: number; nome: string; destino: string; valor: number; data_saida: string }
+interface Viagem { id: number; nome: string; destino: string; valor: number; valor_compartilhado: number; valor_casal: number; data_saida: string }
 interface Reserva {
   id: number; viagem_id: number; viagem_nome: string; destino: string; viagem_valor: number
+  valor_compartilhado: number; valor_casal: number
   data_saida: string; vendedor_nome: string; forma_pagamento: string; tipo_cartao: string
   num_parcelas: number; desconto: number; adicional: number; valor_final: number
+  tipo_quarto: string; qtd_quartos: number
   status: 'pendente' | 'pago' | 'cancelado'; observacoes: string; passageiros: Passageiro[]
 }
 
 const emptyForm = {
   viagem_id: '', desconto: 0, adicional: 0, forma_pagamento: '', tipo_cartao: '',
-  num_parcelas: 1, data_primeira_parcela: '', status: 'pendente' as string, observacoes: ''
+  num_parcelas: 1, data_primeira_parcela: '', status: 'pendente' as string, observacoes: '',
+  tipo_quarto: 'compartilhado'
 }
 
 const STATUS_COR: Record<string, string> = {
@@ -116,6 +119,15 @@ export default function Reservas() {
   }
 
   const viagemSelecionada = viagens.find(v => v.id === Number(form.viagem_id))
+
+  // Cálculo automático baseado em tipo_quarto e qtd passageiros
+  const qtdPassageiros = passageirosSelecionados.length || 1
+  const qtdQuartos = form.tipo_quarto === 'casal' ? Math.ceil(qtdPassageiros / 2) : qtdPassageiros
+  const valorUnitario = form.tipo_quarto === 'casal'
+    ? (viagemSelecionada?.valor_casal || 0)
+    : (viagemSelecionada?.valor_compartilhado || viagemSelecionada?.valor || 0)
+  const valorBase = qtdQuartos * valorUnitario
+  const valorFinal = valorBase - Number(form.desconto) + Number(form.adicional)
 
   return (
     <Layout titulo="Reservas">
@@ -310,6 +322,29 @@ export default function Reservas() {
                       </div>
                     </div>
                   )}
+                  {/* Tipo de quarto */}
+                  <div className="sm:col-span-2">
+                    <label className="label">Tipo de Quarto</label>
+                    <div className="flex gap-4 mt-1">
+                      {[{ v: 'compartilhado', label: '🛏 Quarto Compartilhado' }, { v: 'casal', label: '🛌 Quarto Casal' }].map(op => (
+                        <label key={op.v} className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" name="tipo_quarto" value={op.v}
+                            checked={form.tipo_quarto === op.v}
+                            onChange={e => setForm({ ...form, tipo_quarto: e.target.value })}
+                            className="accent-blue-600" />
+                          <span className="text-sm">{op.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {viagemSelecionada && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        {form.tipo_quarto === 'casal'
+                          ? `Valor por quarto casal: R$ ${Number(viagemSelecionada.valor_casal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                          : `Valor por pessoa (compartilhado): R$ ${Number(viagemSelecionada.valor_compartilhado || viagemSelecionada.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                        }
+                      </p>
+                    )}
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="label">Desconto (R$)</label>
@@ -321,9 +356,10 @@ export default function Reservas() {
                     </div>
                   </div>
                   {viagemSelecionada && (
-                    <p className="text-sm font-medium text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg">
-                      Valor final: R$ {(Number(viagemSelecionada.valor) - Number(form.desconto) + Number(form.adicional)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
+                    <div className="text-sm font-medium text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg space-y-1">
+                      <p>{form.tipo_quarto === 'casal' ? `Quartos: ${qtdQuartos} × R$ ${Number(viagemSelecionada.valor_casal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : `Passageiros: ${qtdPassageiros} × R$ ${Number(viagemSelecionada.valor_compartilhado || viagemSelecionada.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</p>
+                      <p>Valor final: R$ {valorFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
                   )}
                 </div>
 

@@ -11,11 +11,13 @@ interface Viagem {
   data_saida: string
   data_retorno: string
   valor: number
+  valor_compartilhado: number
+  valor_casal: number
   descricao: string
   oculto: number
 }
 
-const empty: Omit<Viagem, 'id' | 'oculto'> = { nome: '', destino: '', data_saida: '', data_retorno: '', valor: 0, descricao: '' }
+const empty: Omit<Viagem, 'id' | 'oculto'> = { nome: '', destino: '', data_saida: '', data_retorno: '', valor: 0, valor_compartilhado: 0, valor_casal: 0, descricao: '' }
 
 function chavesMes(viagens: Viagem[]) {
   const meses = new Map<string, Viagem[]>()
@@ -115,7 +117,7 @@ export default function Viagens() {
   }
 
   function abrirEditar(v: Viagem) {
-    setForm({ nome: v.nome, destino: v.destino, data_saida: v.data_saida, data_retorno: v.data_retorno, valor: v.valor, descricao: v.descricao })
+    setForm({ nome: v.nome, destino: v.destino, data_saida: v.data_saida, data_retorno: v.data_retorno, valor: v.valor, valor_compartilhado: v.valor_compartilhado || v.valor || 0, valor_casal: v.valor_casal || 0, descricao: v.descricao })
     setEditando(v); setErro(''); setShowForm(true)
   }
 
@@ -316,9 +318,13 @@ export default function Viagens() {
                     <label className="label">Data de Retorno</label>
                     <input type="date" className="input" value={form.data_retorno} onChange={(e) => setForm({ ...form, data_retorno: e.target.value })} required />
                   </div>
-                  <div className="sm:col-span-2">
-                    <label className="label">Valor (R$)</label>
-                    <input type="number" step="0.01" min="0" className="input" value={form.valor} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} required />
+                  <div>
+                    <label className="label">Valor - Quarto Compartilhado (R$)</label>
+                    <input type="number" step="0.01" min="0" className="input" value={form.valor_compartilhado} onChange={(e) => setForm({ ...form, valor_compartilhado: Number(e.target.value), valor: Number(e.target.value) })} required />
+                  </div>
+                  <div>
+                    <label className="label">Valor - Quarto Casal (R$)</label>
+                    <input type="number" step="0.01" min="0" className="input" value={form.valor_casal} onChange={(e) => setForm({ ...form, valor_casal: Number(e.target.value) })} />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="label">Descrição</label>

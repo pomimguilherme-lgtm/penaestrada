@@ -35,7 +35,9 @@ router.get('/', autenticar, async (req, res) => {
     if (viagem_id) { where += ' AND r.viagem_id = ?'; params.push(viagem_id); }
 
     const reservas = await db.prepare(
-      `SELECT r.*, v.nome as viagem_nome, v.destino, v.valor as viagem_valor, v.data_saida, v.data_retorno,
+      `SELECT r.*, v.nome as viagem_nome, v.destino, v.valor as viagem_valor,
+              v.valor_compartilhado, v.valor_casal,
+              v.data_saida, v.data_retorno,
               u.nome as vendedor_nome,
               COALESCE(v.valor - COALESCE(r.desconto,0) + COALESCE(r.adicional,0), 0) as valor_final
        FROM reservas r
@@ -59,7 +61,8 @@ router.post('/', autenticar, async (req, res) => {
   try {
     const {
       viagem_id, desconto, adicional, forma_pagamento, tipo_cartao,
-      num_parcelas, data_primeira_parcela, status, observacoes, passageiros = []
+      num_parcelas, data_primeira_parcela, status, observacoes, passageiros = [],
+      tipo_quarto, qtd_quartos
     } = req.body;
     if (!viagem_id) return res.status(400).json({ erro: 'Viagem obrigatória' });
     if (!forma_pagamento) return res.status(400).json({ erro: 'Forma de pagamento obrigatória' });
@@ -67,12 +70,13 @@ router.post('/', autenticar, async (req, res) => {
 
     const result = await db.prepare(
       `INSERT INTO reservas (viagem_id, vendedor_id, desconto, adicional, forma_pagamento, tipo_cartao,
-        num_parcelas, data_primeira_parcela, status, observacoes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        num_parcelas, data_primeira_parcela, status, observacoes, tipo_quarto, qtd_quartos)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       viagem_id, req.usuario.id, desconto || 0, adicional || 0,
       forma_pagamento, tipo_cartao || null, num_parcelas || 1,
-      data_primeira_parcela || null, status || 'pendente', observacoes || null
+      data_primeira_parcela || null, status || 'pendente', observacoes || null,
+      tipo_quarto || 'compartilhado', qtd_quartos || 1
     );
     const reservaId = Number(result.lastInsertRowid);
 
@@ -101,12 +105,13 @@ router.put('/:id', autenticar, async (req, res) => {
 
     const {
       viagem_id, desconto, adicional, forma_pagamento, tipo_cartao,
-      num_parcelas, data_primeira_parcela, status, observacoes, passageiros
+      num_parcelas, data_primeira_parcela, status, observacoes, passageiros,
+      tipo_quarto, qtd_quartos
     } = req.body;
 
     await db.prepare(
       `UPDATE reservas SET viagem_id=?, desconto=?, adicional=?, forma_pagamento=?, tipo_cartao=?,
-        num_parcelas=?, data_primeira_parcela=?, status=?, observacoes=? WHERE id=?`
+        num_parcelas=?, data_primeira_parcela=?, status=?, observacoes=?, tipo_quarto=?, qtd_quartos=? WHERE id=?`
     ).run(
       viagem_id || reserva.viagem_id,
       desconto !== undefined ? desconto : reserva.desconto,
@@ -117,6 +122,8 @@ router.put('/:id', autenticar, async (req, res) => {
       data_primeira_parcela !== undefined ? data_primeira_parcela : reserva.data_primeira_parcela,
       status || reserva.status,
       observacoes !== undefined ? observacoes : reserva.observacoes,
+      tipo_quarto || reserva.tipo_quarto || 'compartilhado',
+      qtd_quartos || reserva.qtd_quartos || 1,
       req.params.id
     );
 
