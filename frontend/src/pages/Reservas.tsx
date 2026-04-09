@@ -71,7 +71,8 @@ export default function Reservas() {
     setForm({
       viagem_id: String(r.viagem_id), desconto: r.desconto, adicional: r.adicional,
       forma_pagamento: r.forma_pagamento, tipo_cartao: r.tipo_cartao || '',
-      num_parcelas: r.num_parcelas, data_primeira_parcela: '', status: r.status, observacoes: r.observacoes || ''
+      num_parcelas: r.num_parcelas, data_primeira_parcela: '', status: r.status,
+      observacoes: r.observacoes || '', tipo_quarto: r.tipo_quarto || 'compartilhado'
     })
     setPassageirosSelecionados(r.passageiros || [])
     setEditando(r); setErro(''); setShowForm(true)
@@ -120,13 +121,12 @@ export default function Reservas() {
 
   const viagemSelecionada = viagens.find(v => v.id === Number(form.viagem_id))
 
-  // Cálculo automático baseado em tipo_quarto e qtd passageiros
-  const qtdPassageiros = passageirosSelecionados.length || 1
-  const qtdQuartos = form.tipo_quarto === 'casal' ? Math.ceil(qtdPassageiros / 2) : qtdPassageiros
+  // Cálculo: valor por PESSOA × quantidade de passageiros (ambos os tipos)
+  const qtdPassageiros = passageirosSelecionados.length
   const valorUnitario = form.tipo_quarto === 'casal'
     ? (viagemSelecionada?.valor_casal || 0)
     : (viagemSelecionada?.valor_compartilhado || viagemSelecionada?.valor || 0)
-  const valorBase = qtdQuartos * valorUnitario
+  const valorBase = qtdPassageiros * valorUnitario
   const valorFinal = valorBase - Number(form.desconto) + Number(form.adicional)
 
   return (
@@ -339,7 +339,7 @@ export default function Reservas() {
                     {viagemSelecionada && (
                       <p className="text-xs text-gray-400 mt-1">
                         {form.tipo_quarto === 'casal'
-                          ? `Valor por quarto casal: R$ ${Number(viagemSelecionada.valor_casal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                          ? `Valor por pessoa (casal): R$ ${Number(viagemSelecionada.valor_casal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                           : `Valor por pessoa (compartilhado): R$ ${Number(viagemSelecionada.valor_compartilhado || viagemSelecionada.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                         }
                       </p>
@@ -357,8 +357,16 @@ export default function Reservas() {
                   </div>
                   {viagemSelecionada && (
                     <div className="text-sm font-medium text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg space-y-1">
-                      <p>{form.tipo_quarto === 'casal' ? `Quartos: ${qtdQuartos} × R$ ${Number(viagemSelecionada.valor_casal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : `Passageiros: ${qtdPassageiros} × R$ ${Number(viagemSelecionada.valor_compartilhado || viagemSelecionada.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</p>
-                      <p>Valor final: R$ {valorFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      {qtdPassageiros === 0
+                        ? <p className="text-gray-400 text-xs">Adicione passageiros para calcular o valor</p>
+                        : <>
+                            <p>{qtdPassageiros} passageiro{qtdPassageiros > 1 ? 's' : ''} × R$ {valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({form.tipo_quarto === 'casal' ? 'casal' : 'compartilhado'})</p>
+                            {(Number(form.desconto) > 0 || Number(form.adicional) > 0) && (
+                              <p className="text-xs text-gray-500">Base: R$ {valorBase.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {Number(form.desconto) > 0 ? `− R$ ${Number(form.desconto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} desc.` : ''} {Number(form.adicional) > 0 ? `+ R$ ${Number(form.adicional).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} adic.` : ''}</p>
+                            )}
+                            <p className="font-bold">Total: R$ {valorFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          </>
+                      }
                     </div>
                   )}
                 </div>

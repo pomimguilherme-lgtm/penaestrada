@@ -39,18 +39,24 @@ router.get('/', autenticar, async (req, res) => {
               v.valor_compartilhado, v.valor_casal,
               v.data_saida, v.data_retorno,
               u.nome as vendedor_nome,
-              COALESCE(v.valor - COALESCE(r.desconto,0) + COALESCE(r.adicional,0), 0) as valor_final
+              (SELECT COUNT(*) FROM reserva_passageiros rp WHERE rp.reserva_id = r.id) as qtd_passageiros
        FROM reservas r
        LEFT JOIN viagens v ON r.viagem_id = v.id
        LEFT JOIN usuarios u ON r.vendedor_id = u.id
        ${where} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`
     ).all(...params, Number(limit), offset);
 
-    // Buscar passageiros de cada reserva
-    const result = await Promise.all(reservas.map(async (r) => ({
-      ...r,
-      passageiros: await buscarPassageiros(r.id),
-    })));
+    // Buscar passageiros e calcular valor_final correto
+    const result = await Promise.all(reservas.map(async (r) => {
+      const passageiros = await buscarPassageiros(r.id);
+      const qtd = passageiros.length || 0;
+      const valorUnitario = r.tipo_quarto === 'casal'
+        ? (r.valor_casal || 0)
+        : (r.valor_compartilhado || r.viagem_valor || 0);
+      const valorBase = qtd * valorUnitario;
+      const valor_final = valorBase - (r.desconto || 0) + (r.adicional || 0);
+      return { ...r, passageiros, qtd_passageiros: qtd, valor_final };
+    }));
 
     res.json(result);
   } catch (e) { res.status(500).json({ erro: e.message }); }
