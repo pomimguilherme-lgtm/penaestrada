@@ -217,6 +217,7 @@ async function initDb() {
 
   // Migracoes para bancos existentes
   try { await c.execute("ALTER TABLE base_clientes ADD COLUMN vendedor_id INTEGER REFERENCES usuarios(id)"); } catch (_) {}
+  try { await c.execute("ALTER TABLE viagens ADD COLUMN oculto INTEGER NOT NULL DEFAULT 0"); } catch (_) {}
   try { await c.execute("ALTER TABLE viagens ADD COLUMN valor_compartilhado REAL DEFAULT 0"); } catch (_) {}
   try { await c.execute("ALTER TABLE viagens ADD COLUMN valor_casal REAL DEFAULT 0"); } catch (_) {}
   try { await c.execute("ALTER TABLE reservas ADD COLUMN tipo_quarto TEXT DEFAULT 'compartilhado'"); } catch (_) {}
