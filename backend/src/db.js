@@ -236,4 +236,88 @@ async function initDb() {
   return db;
 }
 
-module.exports = { initDb, db };
+// ─── BACKUP AUTOMÁTICO ───────────────────────────────────────────────────────
+
+const TABELAS_BACKUP = [
+  'usuarios', 'viagens', 'base_clientes', 'reservas',
+  'reserva_passageiros', 'parcelas', 'parcelas_reserva',
+  'galerias', 'galeria_midias', 'quartos', 'quarto_pessoas'
+];
+
+function resolveBackupPath() {
+  // Preferir o volume persistente do Railway; fallback para pasta local
+  const candidatos = ['/data/backup.json', path.join(__dirname, '..', 'backup.json')];
+  for (const p of candidatos) {
+    try {
+      fs.writeFileSync(p + '.test', '');
+      fs.unlinkSync(p + '.test');
+      return p;
+    } catch (_) {}
+  }
+  return candidatos[1];
+}
+
+async function salvarBackup() {
+  try {
+    const c = getClient();
+    const dados = { _backup_at: new Date().toISOString() };
+    for (const tabela of TABELAS_BACKUP) {
+      try {
+        const r = await c.execute(`SELECT * FROM ${tabela}`);
+        dados[tabela] = r.rows;
+      } catch { dados[tabela] = []; }
+    }
+    const destino = resolveBackupPath();
+    fs.writeFileSync(destino, JSON.stringify(dados, null, 2));
+    console.log(`[backup] Salvo em ${destino} — ${Object.values(dados).filter(Array.isArray).reduce((s, a) => s + a.length, 0)} registros`);
+    return dados;
+  } catch (e) {
+    console.error('[backup] Erro ao salvar:', e.message);
+  }
+}
+
+async function restaurarBackup() {
+  const candidatos = ['/data/backup.json', path.join(__dirname, '..', 'backup.json')];
+  let dados = null;
+  for (const p of candidatos) {
+    if (fs.existsSync(p)) {
+      try { dados = JSON.parse(fs.readFileSync(p, 'utf8')); break; } catch (_) {}
+    }
+  }
+  if (!dados) { console.log('[backup] Nenhum backup encontrado.'); return false; }
+
+  console.log(`[backup] Restaurando de ${dados._backup_at || 'data desconhecida'}...`);
+  const c = getClient();
+
+  const ordemInsert = [
+    'usuarios', 'viagens', 'base_clientes', 'reservas',
+    'reserva_passageiros', 'parcelas', 'parcelas_reserva',
+    'galerias', 'galeria_midias', 'quartos', 'quarto_pessoas'
+  ];
+
+  for (const tabela of ordemInsert) {
+    const rows = dados[tabela];
+    if (!rows || rows.length === 0) continue;
+    const colunas = Object.keys(rows[0]);
+    const placeholders = colunas.map(() => '?').join(', ');
+    const sql = `INSERT OR IGNORE INTO ${tabela} (${colunas.join(', ')}) VALUES (${placeholders})`;
+    let ok = 0;
+    for (const row of rows) {
+      try {
+        await c.execute({ sql, args: colunas.map(c2 => row[c2] ?? null) });
+        ok++;
+      } catch (_) {}
+    }
+    if (ok > 0) console.log(`[backup] ${tabela}: ${ok} registros restaurados`);
+  }
+  return true;
+}
+
+function iniciarBackupAutomatico() {
+  // Backup a cada 30 minutos
+  const INTERVALO = 30 * 60 * 1000;
+  setInterval(salvarBackup, INTERVALO);
+  console.log('[backup] Backup automático ativado (a cada 30 min)');
+}
+
+module.exports = { initDb, db, salvarBackup, restaurarBackup, iniciarBackupAutomatico };

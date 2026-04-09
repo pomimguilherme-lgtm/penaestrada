@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { initDb } = require('./db');
+const { initDb, salvarBackup, restaurarBackup, iniciarBackupAutomatico } = require('./db');
 
 const app = express();
 app.use(cors({
@@ -30,6 +30,37 @@ app.get('/api/admin/exportar', async (req, res) => {
       } catch { dados[tabela] = []; }
     }
     res.json(dados);
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// Baixar backup JSON atual
+app.get('/api/admin/backup', async (req, res) => {
+  const secret = process.env.BACKUP_SECRET || 'penaestrada-backup-2024';
+  if (req.query.secret !== secret) return res.status(401).json({ erro: 'Nao autorizado' });
+  try {
+    const dados = await salvarBackup();
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Disposition', `attachment; filename="penaestrada-backup-${date}.json"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(dados);
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// Restaurar backup JSON enviado via POST
+app.post('/api/admin/restaurar', express.json({ limit: '50mb' }), async (req, res) => {
+  const secret = process.env.BACKUP_SECRET || 'penaestrada-backup-2024';
+  if (req.query.secret !== secret) return res.status(401).json({ erro: 'Nao autorizado' });
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const backupPath = '/data/backup.json';
+    fs.writeFileSync(backupPath, JSON.stringify(req.body));
+    const ok = await restaurarBackup();
+    res.json({ ok, mensagem: ok ? 'Backup restaurado com sucesso' : 'Nenhum backup encontrado' });
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }
@@ -86,7 +117,22 @@ try {
 
 const PORT = process.env.PORT || 3001;
 
-initDb().then(() => {
+initDb().then(async () => {
+  // Auto-restore: se o banco estiver vazio, restaurar do backup
+  const { db } = require('./db');
+  try {
+    const usuarios = await db.execute('SELECT COUNT(*) as c FROM usuarios');
+    if (usuarios.rows[0].c == 0) {
+      console.log('[startup] Banco vazio — tentando restaurar backup...');
+      await restaurarBackup();
+    }
+  } catch (_) {}
+
+  // Ativar backup automático a cada 30 minutos
+  iniciarBackupAutomatico();
+  // Fazer backup imediato ao iniciar
+  setTimeout(salvarBackup, 5000);
+
   app.listen(PORT, () => {
     console.log(`Servidor rodando em http://localhost:${PORT}`);
   });
