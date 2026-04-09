@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { db } = require('../db');
 const { autenticar, apenasAdmin } = require('../middleware/auth');
 
@@ -25,23 +26,31 @@ function resolveUploadsDir() {
 
 const uploadsDir = resolveUploadsDir();
 
-// ─── Multer ───────────────────────────────────────────────────────────────────
-let upload;
-try {
-  const multer = require('multer');
-  const { v4: uuidv4 } = require('uuid');
-  upload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => cb(null, uploadsDir),
-      filename: (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname).toLowerCase()}`),
-    }),
-    limits: { fileSize: 100 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-      const ok = ['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/quicktime'];
-      cb(ok.includes(file.mimetype) ? null : new Error('Tipo não permitido'), ok.includes(file.mimetype));
-    },
-  });
-} catch (e) { console.error('multer/uuid indisponível:', e.message); }
+// ─── Multer com crypto nativo (sem pacote uuid) ───────────────────────────────
+const multer = require('multer');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const id = crypto.randomBytes(16).toString('hex');
+    cb(null, `${id}${ext}`);
+  },
+});
+
+const tiposPermitidos = ['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/quicktime'];
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (tiposPermitidos.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(null, false); // rejeita silenciosamente (multer v2)
+    }
+  },
+});
 
 // ─── CRUD Galerias ────────────────────────────────────────────────────────────
 
@@ -117,10 +126,7 @@ router.get('/:id/midias', autenticar, async (req, res) => {
 });
 
 // Upload de mídias (admin)
-router.post('/:id/upload', autenticar, apenasAdmin, (req, res, next) => {
-  if (!upload) return res.status(503).json({ erro: 'Upload indisponível no servidor' });
-  upload.array('midias', 30)(req, res, next);
-}, async (req, res) => {
+router.post('/:id/upload', autenticar, apenasAdmin, upload.array('midias', 30), async (req, res) => {
   try {
     const g = await db.prepare('SELECT id FROM galerias WHERE id = ?').get(req.params.id);
     if (!g) return res.status(404).json({ erro: 'Galeria não encontrada' });
