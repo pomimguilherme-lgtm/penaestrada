@@ -47,6 +47,7 @@ function Toast({ msg }: { msg: string }) {
 
 export default function GaleriaPage() {
   const [galerias, setGalerias] = useState<Galeria[]>([])
+  const [ordem, setOrdem] = useState<'asc' | 'desc'>('asc')
   const [galeriaAtual, setGaleriaAtual] = useState<Galeria | null>(null)
   const [midias, setMidias] = useState<Midia[]>([])
   const [modal, setModal] = useState<Midia | null>(null)
@@ -60,14 +61,14 @@ export default function GaleriaPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const { isAdmin } = useAuth()
 
-  useEffect(() => { carregarGalerias() }, [])
+  useEffect(() => { carregarGalerias() }, [ordem])
 
   function mostrarToast(msg: string) {
     setToast(msg); setTimeout(() => setToast(''), 3500)
   }
 
   function carregarGalerias() {
-    api.get('/galerias').then(r => setGalerias(r.data)).catch(() => {})
+    api.get(`/galerias?ordem=${ordem}`).then(r => setGalerias(r.data)).catch(() => {})
   }
 
   function carregarMidias(gid: number) {
@@ -166,9 +167,22 @@ export default function GaleriaPage() {
         <div className="space-y-5">
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-500">{galerias.length} galeria(s)</p>
+          <div className="flex items-center gap-3">
+            {/* Botões A-Z / Z-A */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+              <button onClick={() => setOrdem('asc')}
+                className={`px-3 py-1.5 transition-colors ${ordem === 'asc' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                A-Z
+              </button>
+              <button onClick={() => setOrdem('desc')}
+                className={`px-3 py-1.5 transition-colors border-l border-gray-200 ${ordem === 'desc' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Z-A
+              </button>
+            </div>
             {isAdmin && (
               <button className="btn-primary" onClick={abrirNova}>+ Criar Nova Galeria</button>
             )}
+          </div>
           </div>
 
           {galerias.length === 0 && (

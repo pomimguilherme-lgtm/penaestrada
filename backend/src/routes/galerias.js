@@ -57,6 +57,7 @@ const upload = multer({
 // Listar todas
 router.get('/', autenticar, async (req, res) => {
   try {
+    const ordem = req.query.ordem === 'desc' ? 'DESC' : 'ASC';
     const galerias = await db.prepare(
       `SELECT g.*, u.nome as criado_por_nome,
               COUNT(gm.id) as total_midias
@@ -64,7 +65,7 @@ router.get('/', autenticar, async (req, res) => {
        LEFT JOIN usuarios u ON u.id = g.created_by
        LEFT JOIN galeria_midias gm ON gm.galeria_id = g.id
        GROUP BY g.id
-       ORDER BY g.created_at DESC`
+       ORDER BY LOWER(g.nome) ${ordem}`
     ).all();
     res.json(galerias);
   } catch (e) { res.status(500).json({ erro: e.message }); }
