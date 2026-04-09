@@ -198,6 +198,21 @@ async function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (galeria_id) REFERENCES galerias(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS quartos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      viagem_id INTEGER NOT NULL,
+      nome TEXT NOT NULL,
+      capacidade INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (viagem_id) REFERENCES viagens(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS quarto_pessoas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      quarto_id INTEGER NOT NULL,
+      nome_pessoa TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (quarto_id) REFERENCES quartos(id) ON DELETE CASCADE
+    )`,
   ], 'deferred');
 
   // Migracoes para bancos existentes

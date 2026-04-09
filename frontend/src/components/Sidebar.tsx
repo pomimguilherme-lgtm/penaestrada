@@ -8,6 +8,7 @@ const navItems = [
   { to: '/passageiros', label: 'Passageiros', icon: '🧳', roles: ['admin', 'vendedor'] },
   { to: '/clientes', label: 'Clientes', icon: '👤', roles: ['admin', 'vendedor'] },
   { to: '/viagens', label: 'Viagens', icon: '✈️', roles: ['admin', 'vendedor'] },
+  { to: '/quartos', label: 'Quartos', icon: '🛏️', roles: ['admin', 'vendedor'] },
   { to: '/galeria', label: 'Galeria', icon: '🖼️', roles: ['admin', 'vendedor'] },
   { to: '/vendedores', label: 'Vendedores', icon: '🧑‍💼', roles: ['admin'] },
 ]

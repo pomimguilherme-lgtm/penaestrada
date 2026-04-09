@@ -40,6 +40,7 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/base-clientes', require('./routes/base-clientes'));
 app.use('/api/reservas', require('./routes/reservas'));
 app.use('/api/passageiros', require('./routes/passageiros'));
+app.use('/api/quartos', require('./routes/quartos'));
 
 try {
   const { router: galeriaRouter, uploadsDir } = require('./routes/galeria');
