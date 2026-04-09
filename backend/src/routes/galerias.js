@@ -126,8 +126,8 @@ router.get('/:id/midias', autenticar, async (req, res) => {
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
-// Upload de mídias (admin)
-router.post('/:id/upload', autenticar, apenasAdmin, upload.array('midias', 30), async (req, res) => {
+// Upload de mídias (admin ou vendedor autenticado)
+router.post('/:id/upload', autenticar, upload.array('midias', 30), async (req, res) => {
   try {
     const g = await db.prepare('SELECT id FROM galerias WHERE id = ?').get(req.params.id);
     if (!g) return res.status(404).json({ erro: 'Galeria não encontrada' });
@@ -147,11 +147,13 @@ router.post('/:id/upload', autenticar, apenasAdmin, upload.array('midias', 30), 
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
-// Excluir mídia (admin)
-router.delete('/midia/:id', autenticar, apenasAdmin, async (req, res) => {
+// Excluir mídia (admin ou dono do upload)
+router.delete('/midia/:id', autenticar, async (req, res) => {
   try {
     const m = await db.prepare('SELECT * FROM galeria_midias WHERE id = ?').get(req.params.id);
     if (!m) return res.status(404).json({ erro: 'Mídia não encontrada' });
+    if (req.usuario.tipo !== 'admin' && m.uploaded_por !== req.usuario.id)
+      return res.status(403).json({ erro: 'Sem permissão para excluir esta mídia' });
     try { fs.unlinkSync(path.join(uploadsDir, m.nome_arquivo)); } catch (_) {}
     await db.prepare('DELETE FROM galeria_midias WHERE id = ?').run(req.params.id);
     res.json({ mensagem: 'Mídia removida' });

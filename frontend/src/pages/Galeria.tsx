@@ -20,6 +20,7 @@ interface Midia {
   nome_arquivo: string
   url: string
   tamanho: number
+  uploaded_por: number
   uploaded_por_nome: string
   created_at: string
 }
@@ -59,7 +60,7 @@ export default function GaleriaPage() {
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { isAdmin } = useAuth()
+  const { isAdmin, usuario } = useAuth()
 
   useEffect(() => { carregarGalerias() }, [ordem])
 
@@ -274,6 +275,15 @@ export default function GaleriaPage() {
                 </button>
               </>
             )}
+            {!isAdmin && (
+              <>
+                <input ref={inputRef} type="file" multiple accept="image/*,video/mp4,video/quicktime"
+                  className="hidden" onChange={uploadArquivos} />
+                <button className="btn-secondary text-sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+                  {uploading ? `Enviando ${progresso}%...` : '+ Adicionar mídia'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -323,7 +333,7 @@ export default function GaleriaPage() {
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-end justify-end p-1.5 gap-1 opacity-0 group-hover:opacity-100">
                   <button onClick={e => { e.stopPropagation(); baixar(m) }}
                     className="w-7 h-7 bg-white/90 rounded-full flex items-center justify-center text-gray-700 hover:bg-white text-xs" title="Baixar">⬇</button>
-                  {isAdmin && (
+                  {(isAdmin || m.uploaded_por === usuario?.id) && (
                     <button onClick={e => { e.stopPropagation(); excluirMidia(m) }}
                       className="w-7 h-7 bg-red-500/90 rounded-full flex items-center justify-center text-white hover:bg-red-600 text-xs" title="Excluir">✕</button>
                   )}
@@ -345,7 +355,7 @@ export default function GaleriaPage() {
               <span>{fmtTamanho(modal.tamanho)}</span>
               <div className="flex gap-2">
                 <button onClick={() => baixar(modal)} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-xs">⬇ Baixar</button>
-                {isAdmin && (
+                {(isAdmin || modal.uploaded_por === usuario?.id) && (
                   <button onClick={() => excluirMidia(modal)} className="px-3 py-1 bg-red-500/70 hover:bg-red-500 rounded-lg text-xs">✕ Excluir</button>
                 )}
                 <button onClick={() => setModal(null)} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-xs">✕ Fechar</button>

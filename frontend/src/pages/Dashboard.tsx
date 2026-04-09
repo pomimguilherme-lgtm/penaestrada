@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Layout from '../components/Layout'
 import api from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -118,6 +119,7 @@ function TooltipMoeda({ active, payload, label }: any) {
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const { isAdmin } = useAuth()
   const [resumo, setResumo] = useState<Resumo | null>(null)
   const [pedidosData, setPedidosData] = useState<PedidosData | null>(null)
   const [vendedores, setVendedores] = useState<Vendedor[]>([])
@@ -131,7 +133,15 @@ export default function Dashboard() {
   const prevTotal = useRef<number>(0)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Estado exclusivo do vendedor
+  const [dadosVendedor, setDadosVendedor] = useState<any>(null)
+
   const carregarResumo = useCallback(async () => {
+    if (!isAdmin) {
+      const r = await api.get('/dashboard/vendedor').catch(() => null)
+      if (r) setDadosVendedor(r.data)
+      return
+    }
     const r = await api.get(`/dashboard/resumo?periodo=${periodo}`)
     setResumo(r.data)
     const novoTotal = r.data.pedidosHoje
@@ -140,7 +150,7 @@ export default function Dashboard() {
       setTimeout(() => setAlerta(null), 5000)
     }
     prevTotal.current = novoTotal
-  }, [periodo])
+  }, [periodo, isAdmin])
 
   const carregarPedidos = useCallback(async () => {
     const params = new URLSearchParams({ page: String(page), limit: '12' })
@@ -167,6 +177,71 @@ export default function Dashboard() {
     await api.patch(`/dashboard/pedidos/${id}/status`, { status })
     carregarPedidos(); carregarResumo()
     if (detalhe?.id === id) setDetalhe((d) => d ? { ...d, status } : d)
+  }
+
+  if (!isAdmin) {
+    const STATUS_COR_V: Record<string, string> = {
+      pago: 'bg-emerald-100 text-emerald-700',
+      pendente: 'bg-amber-100 text-amber-700',
+      cancelado: 'bg-red-100 text-red-700',
+    }
+    return (
+      <Layout titulo="Meu Dashboard">
+        <div className="space-y-6">
+          {/* Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <StatCard label="Minhas Reservas" value={dadosVendedor?.totalReservas ?? '—'} icon="📋" color="bg-blue-50" />
+            <StatCard label="Total Vendido" value={dadosVendedor ? fmtMoeda(dadosVendedor.totalVendido) : '—'} icon="💰" color="bg-emerald-50" />
+          </div>
+
+          {/* Status badges */}
+          {dadosVendedor?.statusResumo?.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {dadosVendedor.statusResumo.map((s: any) => (
+                <span key={s.status} className={`px-3 py-1.5 rounded-full text-sm font-medium ${STATUS_COR_V[s.status] || 'bg-gray-100 text-gray-600'}`}>
+                  {s.status.charAt(0).toUpperCase() + s.status.slice(1)}: {s.total}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Reservas recentes */}
+          <div className="card p-0 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-700">Minhas Reservas Recentes</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Viagem</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Passageiros</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Pagamento</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Valor</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {!dadosVendedor || dadosVendedor.reservasRecentes.length === 0 ? (
+                    <tr><td colSpan={5} className="text-center py-10 text-gray-400">Nenhuma reserva encontrada.</td></tr>
+                  ) : dadosVendedor.reservasRecentes.map((r: any) => (
+                    <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-800">{r.viagem_nome || '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{r.passageiros_nomes || '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs capitalize">{r.forma_pagamento || '—'}{r.num_parcelas > 1 ? ` ${r.num_parcelas}x` : ''}</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-600">{fmtMoeda(r.valor_final)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COR_V[r.status] || 'bg-gray-100 text-gray-600'}`}>{r.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    )
   }
 
   if (!resumo) return (

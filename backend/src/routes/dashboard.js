@@ -160,4 +160,38 @@ router.get('/', autenticar, async (req, res) => {
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
+// ─── DASHBOARD DO VENDEDOR ────────────────────────────────────────────────────
+router.get('/vendedor', autenticar, async (req, res) => {
+  try {
+    const vendedorId = req.usuario.id;
+
+    const [rReservas, rValor, rStatus, reservasRecentes] = await Promise.all([
+      db.prepare(`SELECT COUNT(*) as total FROM reservas WHERE vendedor_id = ? AND status != 'cancelado'`).get(vendedorId),
+      db.prepare(`SELECT COALESCE(SUM(COALESCE(r.valor_final, 0)), 0) as total FROM reservas r WHERE r.vendedor_id = ? AND r.status != 'cancelado'`).get(vendedorId),
+      db.prepare(`SELECT status, COUNT(*) as total FROM reservas WHERE vendedor_id = ? GROUP BY status`).all(vendedorId),
+      db.prepare(`
+        SELECT r.id, r.status, r.forma_pagamento, r.num_parcelas, r.created_at,
+               r.tipo_quarto, COALESCE(r.valor_final, 0) as valor_final,
+               v.nome as viagem_nome, v.destino,
+               GROUP_CONCAT(bc.nome, ', ') as passageiros_nomes
+        FROM reservas r
+        LEFT JOIN viagens v ON r.viagem_id = v.id
+        LEFT JOIN reserva_passageiros rp ON rp.reserva_id = r.id
+        LEFT JOIN base_clientes bc ON bc.id = rp.cliente_id
+        WHERE r.vendedor_id = ?
+        GROUP BY r.id
+        ORDER BY r.created_at DESC
+        LIMIT 20
+      `).all(vendedorId),
+    ]);
+
+    res.json({
+      totalReservas: rReservas?.total || 0,
+      totalVendido: rValor?.total || 0,
+      statusResumo: rStatus,
+      reservasRecentes,
+    });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 module.exports = router;

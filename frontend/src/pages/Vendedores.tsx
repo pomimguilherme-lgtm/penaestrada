@@ -55,7 +55,7 @@ export default function Vendedores() {
     setAlterandoId(u.id)
     try {
       const r = await api.patch(`/vendedores/${u.id}/tipo`, {})
-      mostrarToast(r.data.mensagem)
+      mostrarToast(`${r.data.mensagem} — O usuário deve fazer logout e login novamente para que as permissões sejam aplicadas.`)
       carregar()
     } catch (err: any) {
       mostrarToast(err.response?.data?.erro || 'Erro ao alterar permissão')
