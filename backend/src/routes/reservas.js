@@ -4,14 +4,18 @@ const { autenticar, apenasAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-async function gerarParcelasReserva(reservaId, numParcelas, dataPrimeira) {
+async function gerarParcelasReserva(reservaId, numParcelas, dataPrimeira, valorTotal) {
   await db.prepare('DELETE FROM parcelas_reserva WHERE reserva_id = ?').run(reservaId);
+  if (!dataPrimeira || numParcelas < 1) return;
   const base = new Date(dataPrimeira + 'T12:00:00');
+  const valorParcela = valorTotal > 0 ? Number((valorTotal / numParcelas).toFixed(2)) : 0;
   for (let i = 0; i < numParcelas; i++) {
     const d = new Date(base);
     d.setMonth(d.getMonth() + i);
     const iso = d.toISOString().split('T')[0];
-    await db.prepare('INSERT INTO parcelas_reserva (reserva_id, numero_parcela, data_vencimento) VALUES (?, ?, ?)').run(reservaId, i + 1, iso);
+    await db.prepare(
+      'INSERT INTO parcelas_reserva (reserva_id, numero_parcela, data_vencimento, valor) VALUES (?, ?, ?, ?)'
+    ).run(reservaId, i + 1, iso, valorParcela);
   }
 }
 
@@ -23,10 +27,20 @@ async function buscarPassageiros(reservaId) {
   ).all(reservaId);
 }
 
+async function calcularValorFinal(viagemId, tipoQuarto, passageirosIds, desconto, adicional) {
+  const viagem = await db.prepare('SELECT * FROM viagens WHERE id = ?').get(viagemId);
+  if (!viagem) return 0;
+  const valorUnitario = tipoQuarto === 'casal'
+    ? (viagem.valor_casal || viagem.valor || 0)
+    : (viagem.valor_compartilhado || viagem.valor || 0);
+  const qtd = passageirosIds ? passageirosIds.length : 0;
+  return (qtd * valorUnitario) - (desconto || 0) + (adicional || 0);
+}
+
 // Listar reservas
 router.get('/', autenticar, async (req, res) => {
   try {
-    const { status, viagem_id, busca, page = 1, limit = 50 } = req.query;
+    const { status, viagem_id, page = 1, limit = 50 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
     let where = 'WHERE 1=1';
     const params = [];
@@ -38,24 +52,30 @@ router.get('/', autenticar, async (req, res) => {
       `SELECT r.*, v.nome as viagem_nome, v.destino, v.valor as viagem_valor,
               v.valor_compartilhado, v.valor_casal,
               v.data_saida, v.data_retorno,
-              u.nome as vendedor_nome,
-              (SELECT COUNT(*) FROM reserva_passageiros rp WHERE rp.reserva_id = r.id) as qtd_passageiros
+              u.nome as vendedor_nome
        FROM reservas r
        LEFT JOIN viagens v ON r.viagem_id = v.id
        LEFT JOIN usuarios u ON r.vendedor_id = u.id
        ${where} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`
     ).all(...params, Number(limit), offset);
 
-    // Buscar passageiros e calcular valor_final correto
     const result = await Promise.all(reservas.map(async (r) => {
       const passageiros = await buscarPassageiros(r.id);
-      const qtd = passageiros.length || 0;
-      const valorUnitario = r.tipo_quarto === 'casal'
-        ? (r.valor_casal || 0)
-        : (r.valor_compartilhado || r.viagem_valor || 0);
-      const valorBase = qtd * valorUnitario;
-      const valor_final = valorBase - (r.desconto || 0) + (r.adicional || 0);
-      return { ...r, passageiros, qtd_passageiros: qtd, valor_final };
+      const parcelas = await db.prepare(
+        'SELECT * FROM parcelas_reserva WHERE reserva_id = ? ORDER BY numero_parcela'
+      ).all(r.id);
+
+      // Usar valor_final salvo no banco; se 0 ou ausente, recalcular
+      let valor_final = r.valor_final || 0;
+      if (!valor_final || valor_final === 0) {
+        const qtd = passageiros.length;
+        const valorUnitario = r.tipo_quarto === 'casal'
+          ? (r.valor_casal || r.viagem_valor || 0)
+          : (r.valor_compartilhado || r.viagem_valor || 0);
+        valor_final = (qtd * valorUnitario) - (r.desconto || 0) + (r.adicional || 0);
+      }
+
+      return { ...r, passageiros, parcelas, valor_final };
     }));
 
     res.json(result);
@@ -68,21 +88,23 @@ router.post('/', autenticar, async (req, res) => {
     const {
       viagem_id, desconto, adicional, forma_pagamento, tipo_cartao,
       num_parcelas, data_primeira_parcela, status, observacoes, passageiros = [],
-      tipo_quarto, qtd_quartos
+      tipo_quarto
     } = req.body;
     if (!viagem_id) return res.status(400).json({ erro: 'Viagem obrigatória' });
     if (!forma_pagamento) return res.status(400).json({ erro: 'Forma de pagamento obrigatória' });
     if (passageiros.length === 0) return res.status(400).json({ erro: 'Adicione ao menos um passageiro' });
 
+    const valor_final = await calcularValorFinal(viagem_id, tipo_quarto || 'compartilhado', passageiros, desconto || 0, adicional || 0);
+
     const result = await db.prepare(
       `INSERT INTO reservas (viagem_id, vendedor_id, desconto, adicional, forma_pagamento, tipo_cartao,
-        num_parcelas, data_primeira_parcela, status, observacoes, tipo_quarto, qtd_quartos)
+        num_parcelas, data_primeira_parcela, status, observacoes, tipo_quarto, valor_final)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       viagem_id, req.usuario.id, desconto || 0, adicional || 0,
       forma_pagamento, tipo_cartao || null, num_parcelas || 1,
       data_primeira_parcela || null, status || 'pendente', observacoes || null,
-      tipo_quarto || 'compartilhado', qtd_quartos || 1
+      tipo_quarto || 'compartilhado', valor_final
     );
     const reservaId = Number(result.lastInsertRowid);
 
@@ -91,10 +113,9 @@ router.post('/', autenticar, async (req, res) => {
       await db.prepare('INSERT INTO reserva_passageiros (reserva_id, cliente_id) VALUES (?, ?)').run(reservaId, clienteId);
     }
 
-    // Gerar parcelas se necessário
-    if (data_primeira_parcela && num_parcelas > 1 &&
-        (forma_pagamento === 'boleto' || (forma_pagamento === 'cartao' && tipo_cartao === 'credito'))) {
-      await gerarParcelasReserva(reservaId, num_parcelas, data_primeira_parcela);
+    // Gerar parcelas sempre que houver data e num_parcelas >= 1
+    if (data_primeira_parcela && num_parcelas >= 1) {
+      await gerarParcelasReserva(reservaId, num_parcelas, data_primeira_parcela, valor_final);
     }
 
     res.status(201).json({ id: reservaId, mensagem: 'Reserva criada com sucesso' });
@@ -112,24 +133,34 @@ router.put('/:id', autenticar, async (req, res) => {
     const {
       viagem_id, desconto, adicional, forma_pagamento, tipo_cartao,
       num_parcelas, data_primeira_parcela, status, observacoes, passageiros,
-      tipo_quarto, qtd_quartos
+      tipo_quarto
     } = req.body;
+
+    const vId = viagem_id || reserva.viagem_id;
+    const tq = tipo_quarto || reserva.tipo_quarto || 'compartilhado';
+    const desc = desconto !== undefined ? desconto : reserva.desconto;
+    const adic = adicional !== undefined ? adicional : reserva.adicional;
+
+    // Calcular passageiros para o valor_final
+    const passageirosIds = passageiros ||
+      (await db.prepare('SELECT cliente_id FROM reserva_passageiros WHERE reserva_id = ?').all(req.params.id)).map(r => r.cliente_id);
+    const valor_final = await calcularValorFinal(vId, tq, passageirosIds, desc, adic);
 
     await db.prepare(
       `UPDATE reservas SET viagem_id=?, desconto=?, adicional=?, forma_pagamento=?, tipo_cartao=?,
-        num_parcelas=?, data_primeira_parcela=?, status=?, observacoes=?, tipo_quarto=?, qtd_quartos=? WHERE id=?`
+        num_parcelas=?, data_primeira_parcela=?, status=?, observacoes=?, tipo_quarto=?, valor_final=? WHERE id=?`
     ).run(
-      viagem_id || reserva.viagem_id,
-      desconto !== undefined ? desconto : reserva.desconto,
-      adicional !== undefined ? adicional : reserva.adicional,
+      vId,
+      desc,
+      adic,
       forma_pagamento || reserva.forma_pagamento,
       tipo_cartao !== undefined ? tipo_cartao : reserva.tipo_cartao,
       num_parcelas || reserva.num_parcelas,
       data_primeira_parcela !== undefined ? data_primeira_parcela : reserva.data_primeira_parcela,
       status || reserva.status,
       observacoes !== undefined ? observacoes : reserva.observacoes,
-      tipo_quarto || reserva.tipo_quarto || 'compartilhado',
-      qtd_quartos || reserva.qtd_quartos || 1,
+      tq,
+      valor_final,
       req.params.id
     );
 
@@ -142,12 +173,10 @@ router.put('/:id', autenticar, async (req, res) => {
     }
 
     // Regenerar parcelas
-    const fp = forma_pagamento || reserva.forma_pagamento;
-    const tc = tipo_cartao !== undefined ? tipo_cartao : reserva.tipo_cartao;
-    const np = num_parcelas || reserva.num_parcelas;
     const dp = data_primeira_parcela !== undefined ? data_primeira_parcela : reserva.data_primeira_parcela;
-    if (dp && np > 1 && (fp === 'boleto' || (fp === 'cartao' && tc === 'credito'))) {
-      await gerarParcelasReserva(Number(req.params.id), np, dp);
+    const np = num_parcelas || reserva.num_parcelas;
+    if (dp && np >= 1) {
+      await gerarParcelasReserva(Number(req.params.id), np, dp, valor_final);
     }
 
     res.json({ mensagem: 'Reserva atualizada' });

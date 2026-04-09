@@ -4,14 +4,15 @@ import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 
 interface Passageiro { id: number; nome: string; cpf: string; telefone: string }
+interface Parcela { id: number; numero_parcela: number; data_vencimento: string; valor: number; pago: number }
 interface Viagem { id: number; nome: string; destino: string; valor: number; valor_compartilhado: number; valor_casal: number; data_saida: string }
 interface Reserva {
   id: number; viagem_id: number; viagem_nome: string; destino: string; viagem_valor: number
   valor_compartilhado: number; valor_casal: number
   data_saida: string; vendedor_nome: string; forma_pagamento: string; tipo_cartao: string
-  num_parcelas: number; desconto: number; adicional: number; valor_final: number
-  tipo_quarto: string; qtd_quartos: number
-  status: 'pendente' | 'pago' | 'cancelado'; observacoes: string; passageiros: Passageiro[]
+  num_parcelas: number; data_primeira_parcela: string; desconto: number; adicional: number; valor_final: number
+  tipo_quarto: string; status: 'pendente' | 'pago' | 'cancelado'; observacoes: string
+  passageiros: Passageiro[]; parcelas: Parcela[]
 }
 
 const emptyForm = {
@@ -43,6 +44,7 @@ export default function Reservas() {
   const [erro, setErro] = useState('')
   const [toast, setToast] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
+  const [expandida, setExpandida] = useState<number | null>(null)
   const { isAdmin } = useAuth()
 
   useEffect(() => { carregar(); carregarViagens() }, [filtroStatus])
@@ -158,6 +160,7 @@ export default function Reservas() {
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <h3 className="font-semibold text-gray-800">{r.viagem_nome}</h3>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COR[r.status]}`}>{r.status}</span>
+                    {r.tipo_quarto && <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{r.tipo_quarto === 'casal' ? '🛌 Casal' : '🛏 Compartilhado'}</span>}
                   </div>
                   <p className="text-sm text-gray-500 mb-2">{r.destino} · {r.data_saida ? new Date(r.data_saida + 'T12:00').toLocaleDateString('pt-BR') : ''}</p>
 
@@ -174,7 +177,43 @@ export default function Reservas() {
                     {r.tipo_cartao && <span>{r.tipo_cartao}</span>}
                     {r.num_parcelas > 1 && <span>{r.num_parcelas}x</span>}
                     <span>Vendedor: {r.vendedor_nome}</span>
+                    {r.parcelas && r.parcelas.length > 0 && (
+                      <button onClick={() => setExpandida(expandida === r.id ? null : r.id)}
+                        className="text-blue-600 hover:underline font-medium">
+                        {expandida === r.id ? '▲ Ocultar parcelas' : `▼ Ver ${r.parcelas.length} parcelas`}
+                      </button>
+                    )}
                   </div>
+
+                  {/* Parcelas expandidas */}
+                  {expandida === r.id && r.parcelas && r.parcelas.length > 0 && (
+                    <div className="mt-3 border border-gray-100 rounded-lg overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left px-3 py-2 text-gray-500">Parcela</th>
+                            <th className="text-left px-3 py-2 text-gray-500">Vencimento</th>
+                            <th className="text-right px-3 py-2 text-gray-500">Valor</th>
+                            <th className="text-center px-3 py-2 text-gray-500">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {r.parcelas.map(p => (
+                            <tr key={p.id} className={p.pago ? 'bg-emerald-50' : ''}>
+                              <td className="px-3 py-2 font-medium">{p.numero_parcela}ª</td>
+                              <td className="px-3 py-2">{new Date(p.data_vencimento + 'T12:00').toLocaleDateString('pt-BR')}</td>
+                              <td className="px-3 py-2 text-right">R$ {Number(p.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              <td className="px-3 py-2 text-center">
+                                <span className={`px-2 py-0.5 rounded-full ${p.pago ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                  {p.pago ? 'Pago' : 'Pendente'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col items-end gap-2 min-w-fit">

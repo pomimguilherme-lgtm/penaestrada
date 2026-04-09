@@ -222,6 +222,8 @@ async function initDb() {
   try { await c.execute("ALTER TABLE viagens ADD COLUMN valor_casal REAL DEFAULT 0"); } catch (_) {}
   try { await c.execute("ALTER TABLE reservas ADD COLUMN tipo_quarto TEXT DEFAULT 'compartilhado'"); } catch (_) {}
   try { await c.execute("ALTER TABLE reservas ADD COLUMN qtd_quartos INTEGER DEFAULT 1"); } catch (_) {}
+  try { await c.execute("ALTER TABLE reservas ADD COLUMN valor_final REAL DEFAULT 0"); } catch (_) {}
+  try { await c.execute("ALTER TABLE parcelas_reserva ADD COLUMN valor REAL DEFAULT 0"); } catch (_) {}
 
   // Criar admin padrao se nao existir
   const admins = await c.execute("SELECT id FROM usuarios WHERE tipo = 'admin'");
