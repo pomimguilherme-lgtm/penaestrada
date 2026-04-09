@@ -11,6 +11,30 @@ app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ status: 'ok', env: process.env.NODE_ENV }));
 
+// Exportação completa dos dados — protegido por chave secreta
+app.get('/api/admin/exportar', async (req, res) => {
+  const secret = process.env.BACKUP_SECRET || 'penaestrada-backup-2024';
+  if (req.query.secret !== secret) return res.status(401).json({ erro: 'Nao autorizado' });
+  try {
+    const db = require('./db');
+    const tabelas = [
+      'usuarios', 'viagens', 'base_clientes', 'reservas',
+      'reserva_passageiros', 'parcelas', 'galerias', 'galeria_midias',
+      'quartos', 'quarto_pessoas'
+    ];
+    const dados = {};
+    for (const tabela of tabelas) {
+      try {
+        const r = await db.execute(`SELECT * FROM ${tabela}`);
+        dados[tabela] = r.rows;
+      } catch { dados[tabela] = []; }
+    }
+    res.json(dados);
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
 // Backup do banco — protegido por token secreto
 app.get('/backup/database', (req, res) => {
   const token = req.query.token;
