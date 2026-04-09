@@ -16,7 +16,7 @@ app.get('/api/admin/exportar', async (req, res) => {
   const secret = process.env.BACKUP_SECRET || 'penaestrada-backup-2024';
   if (req.query.secret !== secret) return res.status(401).json({ erro: 'Nao autorizado' });
   try {
-    const db = require('./db');
+    const { db } = require('./db');
     const tabelas = [
       'usuarios', 'viagens', 'base_clientes', 'reservas',
       'reserva_passageiros', 'parcelas', 'galerias', 'galeria_midias',
